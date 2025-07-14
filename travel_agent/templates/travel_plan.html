@@ -3,25 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{destination}}旅行规划</title>
+    <title>{{ info.destination }} 旅行规划</title>
     <style>
-        /* 响应式CSS样式 */
-        /* 支持深色/浅色主题切换 */
-        /* 打印友好的样式 */
+        body { font-family: sans-serif; }
+        .plan { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
+        .attraction-image { max-width: 300px; max-height: 200px; }
     </style>
 </head>
 <body>
-    <!-- 页面结构应包含：
-    1. 标题和基本信息摘要
-    2. 预算分配饼图
-    3. 天气概览卡片（含未来7天预报）
-    4. 行程时间线（每日天气标识）
-    5. 景点详情卡片（含图片和当日天气）
-    6. 美食推荐区域
-    7. 交通住宿信息
-    8. 详细天气预报表格
-    9. 天气相关的穿搭建议
-    10. 紧急联系信息
-    -->
+    <h1>{{ info.destination }} 旅行规划</h1>
+    <p>从 {{ info.departure_city }} 出发, 预算: {{ info.budget }}</p>
+
+    {% for plan_name, plan_activities in plans.items() %}
+        <div class="plan">
+            <h2>{{ plan_name }}方案</h2>
+            {% for activity in plan_activities %}
+                <h3>Day {{ activity.day }}: {{ activity.activity }}</h3>
+                <p>{{ activity.description }}</p>
+                <img src="{{ activity.image_url }}" alt="{{ activity.activity }}" class="attraction-image">
+            {% endfor %}
+        </div>
+    {% endfor %}
 </body>
 </html>

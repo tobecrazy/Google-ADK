@@ -12,7 +12,7 @@ from .modules.html_generator import HTMLGenerator
 class TravelPlanningAgent(Agent):
     """旅行规划AI Agent主类"""
     input_handler: InputHandler = Field(default_factory=InputHandler)
-    web_crawler: WebCrawler = Field(default_factory=WebCrawler)
+    # web_crawler: Optional[WebCrawler] = None # Temporarily commented out
     weather_service: WeatherService = Field(default_factory=WeatherService)
     route_planner: RoutePlanner = Field(default_factory=RoutePlanner)
     html_generator: HTMLGenerator = Field(default_factory=HTMLGenerator)
@@ -22,14 +22,18 @@ class TravelPlanningAgent(Agent):
             name="travel_planning_agent",
             description="A travel planning agent.",
             model="gemini-2.0-flash",
+            # tools=["google_web_search"], # Temporarily commented out
             **kwargs
         )
+        # self.web_crawler = WebCrawler(self.tools['google_web_search']) # Temporarily commented out
 
     async def process_request(self, user_input: str) -> str:
         """处理用户旅行规划请求"""
         travel_info = self.input_handler.parse_input(user_input)
-        # In the future, we will add calls to the other modules here.
-        html_output = self.html_generator.generate_html(travel_info)
+        # attractions = self.web_crawler.get_attractions(travel_info["destination"]) # Temporarily commented out
+        attractions = [] # Placeholder for now
+        travel_plans = self.route_planner.plan_routes(travel_info, attractions)
+        html_output = self.html_generator.generate_html(travel_plans, travel_info)
         with open(f"travel_plan.html", "w", encoding="utf-8") as f:
             f.write(html_output)
         return "I have created a travel plan for you. Please check the travel_plan.html file."
