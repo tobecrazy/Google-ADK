@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ destination }}旅行规划</title>
+    <style>
+        /* 响应式CSS样式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            color: #3498db;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .summary-card {
+            background-color: #ecf0f1;
+            border-left: 5px solid #3498db;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .summary-card p {
+            margin: 5px 0;
+        }
+
+        /* 预算饼图 */
+        .budget-chart {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .budget-chart img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 天气概览 */
+        .weather-overview {
+            background-color: #e8f6f3;
+            border-left: 5px solid #2ecc71;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .weather-overview h3 {
+            color: #2ecc71;
+            border-bottom: 1px solid #d1e7e0;
+            padding-bottom: 8px;
+            margin-top: 0;
+        }
+        .weather-summary div {
+            margin-bottom: 5px;
+        }
+        .daily-weather-forecast {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .daily-weather {
+            background-color: #fff;
+            border: 1px solid #d1e7e0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            flex: 1 1 calc(20% - 15px); /* 5 items per row */
+            min-width: 120px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out;
+        }
+        .daily-weather:hover {
+            transform: translateY(-5px);
+        }
+        .daily-weather .date {
+            font-weight: bold;
+            color: #34495e;
+            margin-bottom: 5px;
+        }
+        .daily-weather .weather-icon {
+            font-size: 2.5em;
+            margin: 10px 0;
+        }
+        .daily-weather .temperature {
+            font-size: 1.1em;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .daily-weather .conditions {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .daily-weather .suggestions {
+            font-size: 0.85em;
+            color: #3498db;
+            margin-top: 10px;
+        }
+
+        /* 行程时间线 */
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+            list-style: none;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            background-color: #ccc;
+            transform: translateX(-50%);
+        }
+        .timeline-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        .timeline-item:nth-child(odd) {
+            flex-direction: row-reverse;
+        }
+        .timeline-item-content {
+            width: 45%;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .timeline-item:nth-child(even) .timeline-item-content {
+            margin-right: 5%;
+        }
+        .timeline-item:nth-child(odd) .timeline-item-content {
+            margin-left: 5%;
+        }
+        .timeline-item-date {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #3498db;
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 50%;
+            font-weight: bold;
+            z-index: 1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .timeline-item-content h4 {
+            margin-top: 0;
+            color: #3498db;
+        }
+        .timeline-item-content .weather-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-bottom: 10px;
+        }
+        .weather-badge.sunny { background-color: #ffeaa7; color: #d35400; }
+        .weather-badge.cloudy { background-color: #dfe6e9; color: #2d3436; }
+        .weather-badge.rainy { background-color: #a29bfe; color: #fff; }
+        .weather-badge.snowy { background-color: #b2bec3; color: #fff; }
+        .weather-badge.thunderstorm { background-color: #ff7675; color: #fff; }
+
+        .attraction-card {
+            display: flex;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .attraction-card-image {
+            flex: 0 0 150px;
+            height: 150px;
+            overflow: hidden;
+        }
+        .attraction-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .attraction-card-content {
+            flex-grow: 1;
+            padding: 15px;
+        }
+        .attraction-card-content h5 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .attraction-weather-info {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 5px;
+        }
+        .attraction-weather-info .temp-badge {
+            background-color: #f39c12;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .attraction-weather-info .activity-badge {
+            background-color: #27ae60;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+
+        /* 美食推荐 */
+        .food-recommendations {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .food-card {
+            background-color: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .food-card-image {
+            height: 180px;
+            overflow: hidden;
+        }
+        .food-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .food-card-content {
+            padding: 15px;
+        }
+        .food-card-content h4 {
+            margin-top: 0;
+            color: #e67e22;
+        }
+        .food-card-content p {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        /* 交通住宿 */
+        .info-card {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .info-card h4 {
+            color: #8e44ad;
+            margin-top: 0;
+        }
+
+        /* 详细天气预报表格 */
+        .weather-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .weather-table th, .weather-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .weather-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+        }
+        .weather-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* 穿搭建议 */
+        .clothing-suggestions ul {
+            list-style: none;
+            padding: 0;
+        }
+        .clothing-suggestions li {
+            background-color: #f0f8ff;
+            border-left: 4px solid #6a5acd;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        /* 紧急联系信息 */
+        .emergency-info {
+            background-color: #ffebee;
+            border-left: 5px solid #c0392b;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 40px;
+        }
+        .emergency-info h3 {
+            color: #c0392b;
+            border-bottom: 1px solid #f8d7da;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 2em;
+            }
+            .daily-weather {
+                flex: 1 1 calc(33% - 15px); /* 3 items per row */
+            }
+            .timeline::before {
+                left: 20px;
+            }
+            .timeline-item {
+                flex-direction: column !important;
+            }
+            .timeline-item-content {
+                width: auto;
+                margin: 0 0 20px 40px !important;
+            }
+            .timeline-item-date {
+                left: 20px;
+                transform: translate(-50%, -50%);
+                top: 0;
+            }
+            .attraction-card {
+                flex-direction: column;
+            }
+            .attraction-card-image {
+                height: 200px;
+                flex: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .daily-weather {
+                flex: 1 1 calc(50% - 15px); /* 2 items per row */
+            }
+        }
+
+        /* 打印友好的样式 */
+        @media print {
+            body {
+                background-color: #fff;
+                color: #000;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+            h1, h2, h3 {
+                color: #000;
+                border-color: #ccc;
+            }
+            .summary-card, .weather-overview, .info-card, .emergency-info, .clothing-suggestions li {
+                border: 1px solid #eee;
+                background-color: #fff;
+                padding: 10px;
+            }
+            .timeline::before {
+                background-color: #eee;
+            }
+            .timeline-item-date {
+                background-color: #eee;
+                color: #000;
+                border: 1px solid #ccc;
+            }
+            .attraction-card, .food-card {
+                border: 1px solid #eee;
+                box-shadow: none;
+            }
+            img {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+
+        /* 深色/浅色主题切换 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #282c34;
+                color: #abb2bf;
+            }
+            .container {
+                background-color: #3a404b;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            }
+            h1, h2, h3 {
+                color: #61afef;
+                border-color: #4b5263;
+            }
+            .summary-card {
+                background-color: #3e4451;
+                border-left-color: #61afef;
+            }
+            .weather-overview {
+                background-color: #3e4451;
+                border-left-color: #98c379;
+            }
+            .weather-overview h3 {
+                color: #98c379;
+                border-color: #4b5263;
+            }
+            .daily-weather {
+                background-color: #3e4451;
+                border-color: #4b5263;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .daily-weather .date {
+                color: #e06c75;
+            }
+            .daily-weather .temperature {
+                color: #e06c75;
+            }
+            .daily-weather .conditions {
+                color: #abb2bf;
+            }
+            .daily-weather .suggestions {
+                color: #61afef;
+            }
+            .timeline::before {
+                background-color: #4b5263;
+            }
+            .timeline-item-content {
+                background-color: #3e4451;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            .timeline-item-date {
+                background-color: #61afef;
+                color: #282c34;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            }
+            .timeline-item-content h4 {
+                color: #61afef;
+            }
+            .weather-badge.sunny { background-color: #d35400; color: #ffeaa7; }
+            .weather-badge.cloudy { background-color: #2d3436; color: #dfe6e9; }
+            .weather-badge.rainy { background-color: #a29bfe; color: #282c34; }
+            .weather-badge.snowy { background-color: #b2bec3; color: #282c34; }
+            .weather-badge.thunderstorm { background-color: #ff7675; color: #282c34; }
+
+            .attraction-card {
+                border-color: #4b5263;
+                background-color: #3e4451;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .attraction-card-content h5 {
+                color: #abb2bf;
+            }
+            .attraction-weather-info {
+                color: #abb2bf;
+            }
+            .attraction-weather-info .temp-badge {
+                background-color: #e5c07b;
+                color: #282c34;
+            }
+            .attraction-weather-info .activity-badge {
+                background-color: #98c379;
+                color: #282c34;
+            }
+
+            .food-card {
+                background-color: #3e4451;
+                border-color: #4b5263;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .food-card-content h4 {
+                color: #e5c07b;
+            }
+            .food-card-content p {
+                color: #abb2bf;
+            }
+
+            .info-card {
+                background-color: #3e4451;
+                border-color: #4b5263;
+            }
+            .info-card h4 {
+                color: #c678dd;
+            }
+
+            .weather-table th, .weather-table td {
+                border-color: #4b5263;
+            }
+            .weather-table th {
+                background-color: #3a404b;
+                color: #abb2bf;
+            }
+            .weather-table tr:nth-child(even) {
+                background-color: #3e4451;
+            }
+
+            .clothing-suggestions li {
+                background-color: #3e4451;
+                border-left-color: #c678dd;
+            }
+
+            .emergency-info {
+                background-color: #3e4451;
+                border-left-color: #e06c75;
+            }
+            .emergency-info h3 {
+                color: #e06c75;
+                border-color: #e06c75;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ destination }}旅行规划</h1>
+
+        <div class="section summary-card">
+            <h2>旅行摘要</h2>
+            <p><strong>出发城市:</strong> {{ departure_city }}</p>
+            <p><strong>目的地:</strong> {{ destination }}</p>
+            <p><strong>出发日期:</strong> {{ departure_date }}</p>
+            <p><strong>旅行天数:</strong> {{ duration }} 天</p>
+            <p><strong>预算:</strong> ¥{{ budget | round(2) }}</p>
+            <p><strong>方案类型:</strong> {{ plan_type }}</p>
+        </div>
+
+        <div class="section budget-chart">
+            <h2>预算分配</h2>
+            <!-- 预算饼图占位符 -->
+            <img src="{{ budget_chart_url }}" alt="预算分配饼图">
+        </div>
+
+        <div class="section weather-overview">
+            <h3>旅行期间天气概况</h3>
+            <div class="weather-summary">
+                <div class="temp-range">温度范围: {{ weather_summary.temp_range }}</div>
+                <div class="weather-trend">天气趋势: {{ weather_summary.weather_trend }}</div>
+                <div class="rain-probability">降雨概率: {{ weather_summary.rain_probability }}</div>
+                <div class="aqi">空气质量指数 (AQI): {{ weather_summary.aqi }}</div>
+                <div class="uv-index">紫外线指数: {{ weather_summary.uv_index }}</div>
+            </div>
+            <h4>未来{{ weather_forecast|length }}天天气预报</h4>
+            <div class="daily-weather-forecast">
+                {% for day in weather_forecast %}
+                <div class="daily-weather">
+                    <div class="date">{{ day.date }}</div>
+                    <div class="weather-icon">{{ day.icon }}</div>
+                    <div class="temperature">{{ day.max_temp }}°C / {{ day.min_temp }}°C</div>
+                    <div class="conditions">{{ day.conditions }}</div>
+                    <div class="suggestions">{{ day.suggestions }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>行程时间线</h2>
+            <ul class="timeline">
+                {% for day_plan in daily_plans %}
+                <li class="timeline-item">
+                    <div class="timeline-item-date">Day {{ loop.index }}</div>
+                    <div class="timeline-item-content">
+                        <h4>{{ day_plan.date }} - {{ day_plan.summary }}</h4>
+                        <span class="weather-badge {{ day_plan.weather_class }}">{{ day_plan.weather_icon }} {{ day_plan.weather_conditions }}</span>
+                        <p><strong>穿搭建议:</strong> {{ day_plan.clothing_suggestions }}</p>
+                        <p><strong>活动建议:</strong> {{ day_plan.activity_recommendations }}</p>
+
+                        {% for attraction in day_plan.attractions %}
+                        <div class="attraction-card">
+                            <div class="attraction-card-image">
+                                <img src="{{ attraction.image_url }}" alt="{{ attraction.name }}" loading="lazy">
+                            </div>
+                            <div class="attraction-card-content">
+                                <h5>{{ attraction.name }}</h5>
+                                <p>{{ attraction.description }}</p>
+                                <p><strong>门票:</strong> ¥{{ attraction.ticket_price | round(2) }}</p>
+                                <p><strong>开放时间:</strong> {{ attraction.opening_hours }}</p>
+                                <div class="attraction-weather-info">
+                                    <span class="weather-badge {{ attraction.weather_class }}">{{ attraction.weather_icon }} {{ attraction.weather_conditions }}</span>
+                                    <span class="temp-badge">{{ attraction.temperature }}°C</span>
+                                    <span class="activity-badge">{{ attraction.activity_suitability }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% if day_plan.meals %}
+                        <h4>餐饮安排</h4>
+                        {% for meal in day_plan.meals %}
+                        <div class="info-card">
+                            <h5>{{ meal.type }} - {{ meal.restaurant_name }}</h5>
+                            <p><strong>推荐菜品:</strong> {{ meal.dishes }}</p>
+                            <p><strong>预估费用:</strong> ¥{{ meal.estimated_cost | round(2) }}</p>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>美食推荐</h2>
+            <div class="food-recommendations">
+                {% for food in food_recommendations %}
+                <div class="food-card">
+                    <div class="food-card-image">
+                        <img src="{{ food.image_url }}" alt="{{ food.name }}" loading="lazy">
+                    </div>
+                    <div class="food-card-content">
+                        <h4>{{ food.name }}</h4>
+                        <p><strong>特色:</strong> {{ food.description }}</p>
+                        <p><strong>价格范围:</strong> {{ food.price_range }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>交通与住宿</h2>
+            <div class="info-card">
+                <h4>交通信息</h4>
+                <p><strong>往返交通工具:</strong> {{ transportation.type }}</p>
+                <p><strong>预估费用:</strong> ¥{{ transportation.estimated_cost | round(2) }}</p>
+                <p><strong>耗时:</strong> {{ transportation.duration }}</p>
+                <p><strong>备注:</strong> {{ transportation.notes }}</p>
+            </div>
+            <div class="info-card">
+                <h4>住宿信息</h4>
+                <p><strong>酒店/民宿:</strong> {{ accommodation.name }}</p>
+                <p><strong>价格区间:</strong> ¥{{ accommodation.price_range | round(2) }} / 晚</p>
+                <p><strong>地址:</strong> {{ accommodation.address }}</p>
+                <p><strong>备注:</strong> {{ accommodation.notes }}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>详细天气预报</h2>
+            <table class="weather-table">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>天气</th>
+                        <th>最高温 (°C)</th>
+                        <th>最低温 (°C)</th>
+                        <th>风力</th>
+                        <th>湿度 (%)</th>
+                        <th>降雨概率 (%)</th>
+                        <th>AQI</th>
+                        <th>紫外线指数</th>
+                        <th>日出/日落</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in weather_forecast %}
+                    <tr>
+                        <td>{{ day.date }}</td>
+                        <td>{{ day.conditions }} {{ day.icon }}</td>
+                        <td>{{ day.max_temp }}</td>
+                        <td>{{ day.min_temp }}</td>
+                        <td>{{ day.wind }}</td>
+                        <td>{{ day.humidity }}</td>
+                        <td>{{ day.rain_probability }}</td>
+                        <td>{{ day.aqi }}</td>
+                        <td>{{ day.uv_index }}</td>
+                        <td>{{ day.sunrise_sunset }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section clothing-suggestions">
+            <h2>穿搭建议</h2>
+            <ul>
+                {% for suggestion in clothing_suggestions %}
+                <li>{{ suggestion }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="section emergency-info">
+            <h3>紧急联系信息</h3>
+            <p><strong>当地报警电话:</strong> 110</p>
+            <p><strong>急救电话:</strong> 120</p>
+            <p><strong>旅游投诉电话:</strong> 12301</p>
+            <p><strong>中国外交部全球领事保护与服务应急呼叫中心:</strong> +86-10-12308</p>
+        </div>
+    </div>
+</body>
+</html>

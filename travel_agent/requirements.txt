@@ -1,0 +1,10 @@
+google-generativeai
+crawl4ai
+requests
+beautifulsoup4
+jinja2
+python-dateutil
+aiohttp
+asyncio
+pytz
+pillow
