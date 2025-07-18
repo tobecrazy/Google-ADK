@@ -20,3 +20,5 @@ aiohttp
 asyncio
 pytz
 pillow
+selenium
+webdriver_manager
