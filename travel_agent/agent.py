@@ -16,16 +16,19 @@ import datetime # Import datetime for default date
 
 class TravelPlanningAgent(Agent):
     """旅行规划AI Agent主类"""
-    input_handler: InputHandler
+    input_handler: Optional[InputHandler]
     web_crawler: Optional[WebCrawler]
-    weather_service: WeatherService
-    route_planner: RoutePlanner
-    html_generator: HTMLGenerator
+    weather_service: Optional[WeatherService]
+    route_planner: Optional[RoutePlanner]
+    html_generator: Optional[HTMLGenerator]
 
     def __init__(self, model: str, **kwargs):
         super().__init__(
+            name="travel_planning_agent",
             model=model,
-            servers=[{"type": "stdio"}], # Assuming stdio for local execution
+            description="Travel planning AI Agent",
+            instruction="You are a helpful agent that plans travel itineraries.",
+            tools=[],
             **kwargs
         )
         self.input_handler = InputHandler()
