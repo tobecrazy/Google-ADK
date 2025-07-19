@@ -1,7 +1,6 @@
 # agent.py - Agent Development Kit主程序入口
 import asyncio
 from typing import Dict, List, Optional
-from typing import Dict, List, Optional
 from pydantic import Field
 from .modules.input_handler import InputHandler
 from .modules.web_crawler import WebCrawler
@@ -21,7 +20,7 @@ class TravelPlanningAgent(Agent):
     route_planner: RoutePlanner = Field(default_factory=RoutePlanner)
     html_generator: HTMLGenerator = Field(default_factory=HTMLGenerator)
     client: Optional[InferenceClient] = None
-    web_crawler: WebCrawler
+    web_crawler: WebCrawler = Field(default_factory=WebCrawler)
 
     def __init__(self, model: str, google_web_search_tool, **kwargs):
         super().__init__(
@@ -29,13 +28,12 @@ class TravelPlanningAgent(Agent):
             model=model,
             description="Travel planning AI Agent",
             instruction="You are a helpful agent that plans travel itineraries.",
-            tools=[],
+            tools=[google_web_search_tool],
             **kwargs
         )
-        self.web_crawler = WebCrawler(google_web_search_tool=google_web_search_tool)
         self.client = InferenceClient(model=model) # Initialize InferenceClient
+        self.web_crawler = WebCrawler(google_web_search_tool=google_web_search_tool)
 
-    
     async def generate_travel_plan_html(self, departure_city: str, destination: str, departure_date: str, duration: int, budget: int) -> str:
         """
         Generates a detailed HTML travel plan based on the provided travel information.
@@ -56,7 +54,7 @@ class TravelPlanningAgent(Agent):
             "budget": budget,
         }
         try:
-            attractions = self.web_crawler.get_attractions(travel_info["destination"])
+            attractions = self.web_crawler.get_attractions(travel_info["destination"], google_web_search_tool=self.google_web_search)
             travel_plans = self.route_planner.plan_routes(travel_info, attractions)
             html_output = self.html_generator.generate_html(travel_plans, travel_info)
             with open(f"travel_plan.html", "w", encoding="utf-8") as f:
@@ -81,16 +79,6 @@ class TravelPlanningAgent(Agent):
         
         # Call the tool directly
         return await self.generate_travel_plan_html(**tool_call_args)
-
-    async def load_tools(self) -> None:
-        # Register the generate_travel_plan_html tool
-        await self.add_mcp_server(
-            type="stdio",
-            config={
-                "command": "python",
-                "args": ["-c", "from travel_agent.agent import TravelPlanningAgent; import asyncio; agent = TravelPlanningAgent(model='gemini-pro'); asyncio.run(agent.generate_travel_plan_html(**tool_call_args))"],
-            },
-        )
 
     async def load_tools(self) -> None:
         # Register the generate_travel_plan_html tool
