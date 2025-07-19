@@ -17,7 +17,7 @@ import datetime # Import datetime for default date
 class TravelPlanningAgent(Agent):
     """旅行规划AI Agent主类"""
     input_handler: InputHandler = Field(default_factory=InputHandler)
-    web_crawler: WebCrawler = Field(default_factory=WebCrawler)
+    web_crawler: WebCrawler = Field(default_factory=lambda: WebCrawler(google_web_search_tool=default_api.google_web_search))
     weather_service: WeatherService = Field(default_factory=WeatherService)
     route_planner: RoutePlanner = Field(default_factory=RoutePlanner)
     html_generator: HTMLGenerator = Field(default_factory=HTMLGenerator)
