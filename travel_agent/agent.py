@@ -21,6 +21,7 @@ class TravelPlanningAgent(Agent):
     weather_service: WeatherService = Field(default_factory=WeatherService)
     route_planner: RoutePlanner = Field(default_factory=RoutePlanner)
     html_generator: HTMLGenerator = Field(default_factory=HTMLGenerator)
+    client: Optional[InferenceClient] = None
 
     def __init__(self, model: str, **kwargs):
         super().__init__(
