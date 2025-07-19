@@ -1,6 +1,7 @@
 # agent.py - Agent Development Kit主程序入口
 import asyncio
 from typing import Dict, List, Optional
+from default_api import google_web_search
 from pydantic import Field
 from .modules.input_handler import InputHandler
 from .modules.web_crawler import WebCrawler

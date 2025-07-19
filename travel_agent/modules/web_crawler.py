@@ -6,15 +6,13 @@ from ..config.settings import USER_AGENTS, REQUEST_INTERVAL
 
 
 class WebCrawler:
-    def __init__(self, google_web_search_tool):
-        self.google_web_search = google_web_search_tool
     def get_attractions(self, city: str, max_attractions=5):
         """Searches for top attractions in a city."""
         print(f"Searching for attractions in {city}...")
         attractions = []
         try:
             search_query = f"top attractions in {city}"
-            search_results = google_web_search(query=search_query)
+            search_results = self.google_web_search(query=search_query)
             
             # Parse search results to extract attraction names and descriptions
             # This is a simplified parsing, a more robust solution might be needed
