@@ -9,12 +9,12 @@ from .modules.weather_service import WeatherService
 from .modules.route_planner import RoutePlanner
 from .modules.html_generator import HTMLGenerator
 
+from google.adk.agents import Agent
 from huggingface_hub.inference._mcp.agent import Agent as HF_Agent
 from huggingface_hub import InferenceClient
 import datetime # Import datetime for default date
-from google.adk.cli.base_agent import BaseAgent
 
-class TravelPlanningAgent(HF_Agent, BaseAgent):
+class TravelPlanningAgent(Agent):
     """旅行规划AI Agent主类"""
     input_handler: InputHandler
     web_crawler: Optional[WebCrawler]
