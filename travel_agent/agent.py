@@ -109,4 +109,4 @@ class TravelPlanningAgent(Agent):
         asyncio.run(self.load_tools())
         return asyncio.run(self.run(prompt))
 
-root_agent = TravelPlanningAgent(model="gemini-1.5-flash")
+root_agent = TravelPlanningAgent(model="gemini-2.0-flash")
