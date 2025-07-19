@@ -16,11 +16,11 @@ import datetime # Import datetime for default date
 
 class TravelPlanningAgent(Agent):
     """旅行规划AI Agent主类"""
-    input_handler: Optional[InputHandler]
-    web_crawler: Optional[WebCrawler]
-    weather_service: Optional[WeatherService]
-    route_planner: Optional[RoutePlanner]
-    html_generator: Optional[HTMLGenerator]
+    input_handler: InputHandler = Field(default_factory=InputHandler)
+    web_crawler: WebCrawler = Field(default_factory=WebCrawler)
+    weather_service: WeatherService = Field(default_factory=WeatherService)
+    route_planner: RoutePlanner = Field(default_factory=RoutePlanner)
+    html_generator: HTMLGenerator = Field(default_factory=HTMLGenerator)
 
     def __init__(self, model: str, **kwargs):
         super().__init__(
@@ -31,11 +31,6 @@ class TravelPlanningAgent(Agent):
             tools=[],
             **kwargs
         )
-        self.input_handler = InputHandler()
-        self.web_crawler = WebCrawler()
-        self.weather_service = WeatherService()
-        self.route_planner = RoutePlanner()
-        self.html_generator = HTMLGenerator()
         self.client = InferenceClient(model=model) # Initialize InferenceClient
 
     
