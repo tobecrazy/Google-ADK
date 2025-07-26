@@ -7,10 +7,10 @@ import os
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
-from google.adk.agents import Agent
-from agents.travel_planner import TravelPlannerAgent
-from agents.data_collector import DataCollectorAgent
-from agents.report_generator import ReportGeneratorAgent
+# from google.adk.agents import Agent  # Commented out due to YAML config issue
+from .agents.travel_planner import TravelPlannerAgent
+from .agents.data_collector import DataCollectorAgent
+from .agents.report_generator import ReportGeneratorAgent
 
 # Configure logging
 logging.basicConfig(
@@ -155,22 +155,22 @@ def create_travel_planning_tool(
     )
 
 
-# Google ADK Agent Configuration
-travel_agent = Agent(
-    name="travel_planning_agent",
-    model="gemini-2.0-flash",
-    description=(
-        "Intelligent Travel Planning AI Agent that generates comprehensive, "
-        "illustrated travel itineraries based on destination, dates, duration, and budget."
-    ),
-    instruction=(
-        "You are an expert travel planning assistant. Generate detailed travel plans "
-        "that include attractions, accommodations, dining, transportation, and budget "
-        "optimization. Always provide multiple options (economic and comfort) and "
-        "create beautiful HTML reports with images and detailed information."
-    ),
-    tools=[create_travel_planning_tool],
-)
+# Google ADK Agent Configuration - Commented out due to YAML config issue
+# travel_agent = Agent(
+#     name="travel_planning_agent",
+#     model="gemini-2.0-flash",
+#     description=(
+#         "Intelligent Travel Planning AI Agent that generates comprehensive, "
+#         "illustrated travel itineraries based on destination, dates, duration, and budget."
+#     ),
+#     instruction=(
+#         "You are an expert travel planning assistant. Generate detailed travel plans "
+#         "that include attractions, accommodations, dining, transportation, and budget "
+#         "optimization. Always provide multiple options (economic and comfort) and "
+#         "create beautiful HTML reports with images and detailed information."
+#     ),
+#     tools=[create_travel_planning_tool],
+# )
 
 
 if __name__ == "__main__":

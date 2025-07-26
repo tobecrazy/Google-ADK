@@ -11,11 +11,11 @@ from typing import Dict, Any, List, Optional
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
-from services.weather_service import WeatherService
-from services.attraction_service import AttractionService
-from services.transport_service import TransportService
-from services.accommodation_service import AccommodationService
-from utils.web_scraper import WebScraper
+from ..services.weather_service import WeatherService
+from ..services.attraction_service import AttractionService
+from ..services.transport_service import TransportService
+from ..services.accommodation_service import AccommodationService
+from ..utils.web_scraper import WebScraper
 
 logger = logging.getLogger(__name__)
 

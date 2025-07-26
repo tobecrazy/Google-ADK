@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
-from utils.budget_calculator import BudgetCalculator
+from ..utils.budget_calculator import BudgetCalculator
 
 logger = logging.getLogger(__name__)
 
