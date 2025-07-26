@@ -1,6 +1,6 @@
 # Google ADK Project
 
-This project provides tools and utilities for working with Google's AI Development Kit (ADK), featuring an intelligent Travel Planning AI Agent that generates comprehensive travel itineraries.
+This project provides tools and utilities for working with Google's AI Development Kit (ADK), featuring an intelligent Travel Planning AI Agent that generates comprehensive travel itineraries with real-time data integration and enhanced Chinese language support.
 
 ## Project Components
 
@@ -8,7 +8,7 @@ This project provides tools and utilities for working with Google's AI Developme
 Basic weather and time query agent for demonstration purposes.
 
 ### 2. Travel AI Agent ⭐ (Featured)
-An intelligent travel planning AI Agent that automatically generates illustrated HTML travel planning reports based on user inputs including destination, travel dates, duration, and budget.
+An intelligent travel planning AI Agent that automatically generates illustrated HTML travel planning reports with real attraction images, comprehensive transportation planning, smart date parsing, and accurate weather forecasts. Fully supports Chinese language input and relative date expressions.
 
 ## Project Structure
 
@@ -46,15 +46,40 @@ An intelligent travel planning AI Agent that automatically generates illustrated
 
 ## Travel AI Agent Features
 
+### 🎯 Core Features
 - 🌍 **Intelligent Destination Analysis** - Comprehensive destination research and insights
-- 📅 **Personalized Itinerary Planning** - Day-by-day, hour-by-hour scheduling
+- 📅 **Smart Date Parsing** - Supports relative dates like "今天", "明天", "后天" with real-time system date integration
 - 💰 **Budget Optimization** - Smart budget allocation (30% transport, 35% accommodation, 20% dining, 15% attractions)
 - 🗺️ **Route Optimization** - Geographic clustering and efficient routing
-- 🏨 **Accommodation Recommendations** - Hotels and lodging within budget
-- 🍽️ **Culinary Recommendations** - Local cuisine and restaurant suggestions
-- 🌤️ **Weather Integration** - Weather-based activity planning
-- 📊 **Rich HTML Reports** - Beautiful, responsive, printable travel reports
-- 📱 **Multiple Planning Options** - Economic and comfort travel scenarios
+- 📊 **Rich HTML Reports** - Beautiful, responsive, printable travel reports with real images
+
+### 🚗 Transportation Planning
+- **自驾 (Self-driving)** - Route planning, fuel costs, tolls, parking estimates
+- **高铁 (High-speed rail)** - Schedules, booking info, seat types, station details
+- **飞机 (Airplane)** - Flight options, airports, baggage policies, timing recommendations
+- **Comprehensive Analysis** - Detailed pros/cons, costs, and booking information for each option
+
+### 🏛️ Enhanced Attraction Experience
+- **Real Images** - Integration with Unsplash API for authentic attraction photos
+- **Detailed Information** - Opening hours, ticket prices, visitor tips
+- **Smart Keywords** - Optimized image search for better visual matching
+- **Fallback Design** - Elegant styled placeholders when images unavailable
+
+### 🌤️ Weather Intelligence
+- **Real-time Forecasts** - OpenWeatherMap API integration with 7-day forecasts
+- **Chinese City Support** - Enhanced handling of Chinese city names with Pinyin conversion
+- **Seasonal Patterns** - Intelligent fallback with realistic seasonal weather data
+- **Activity Planning** - Weather-based activity recommendations
+
+### 🏨 Accommodation & Dining
+- **Hotel Recommendations** - Budget-appropriate lodging options with photos and locations
+- **Local Cuisine** - Restaurant suggestions with photos, prices, and specialties
+- **Cultural Integration** - Local dining customs and food recommendations
+
+### 🌐 Language & Localization
+- **Full Chinese Support** - Native Chinese language processing and output
+- **Date Localization** - Smart parsing of Chinese relative date expressions
+- **Cultural Context** - Location-appropriate recommendations and cultural insights
 
 ## Requirements
 
@@ -71,11 +96,17 @@ Configure these in `travel_agent/.env`:
 All dependencies are listed in `requirements.txt` including:
 - `google-adk` - Google ADK framework
 - `google-generativeai` - Gemini AI integration
-- `beautifulsoup4` - Web scraping
-- `jinja2` - HTML templating
-- `pillow` - Image processing
-- `selenium` - Advanced web scraping
-- And more...
+- `beautifulsoup4` & `lxml` - Web scraping and HTML parsing
+- `jinja2` - HTML templating engine
+- `pillow` - Image processing and handling
+- `selenium` & `webdriver_manager` - Advanced web scraping
+- `pypinyin` - Chinese text processing and Pinyin conversion
+- `python-dateutil` & `pytz` - Advanced date parsing and timezone handling
+- `httpx` & `aiohttp` - Async HTTP client libraries
+- `tenacity` - Retry logic and error handling
+- `crawl4ai` & `markdownify` - Enhanced web crawling capabilities
+- `fastapi` & `uvicorn` - Web API framework (for future extensions)
+- `python-dotenv` - Environment variable management
 
 ## Installation
 
@@ -160,21 +191,52 @@ MAX_CONCURRENT_REQUESTS=10
 
 The Travel AI Agent generates comprehensive HTML reports including:
 
-- **Travel Overview** - Destination info, dates, budget summary
-- **Multiple Itinerary Options** - Economic vs. Comfort plans
-- **Daily Schedules** - Hour-by-hour activity planning
-- **Attraction Details** - Photos, descriptions, tickets, hours
-- **Dining Recommendations** - Local cuisine with photos and prices
-- **Accommodation Options** - Hotels with photos, prices, locations
-- **Transportation Plans** - Routes, schedules, costs
-- **Weather Forecast** - Daily weather for travel period
-- **Budget Breakdown** - Detailed cost analysis
-- **Travel Tips** - Practical advice and recommendations
+### 📋 Travel Overview
+- Destination information with cultural context
+- Smart date parsing (supports "明天", "后天" etc.)
+- Comprehensive budget summary and allocation
+
+### 🚗 Transportation Planning (NEW!)
+- **Three detailed options**: 自驾, 高铁, 飞机
+- **Cost analysis**: Fuel, tickets, parking, tolls
+- **Pros & Cons**: Detailed comparison for each transport mode
+- **Booking information**: Practical tips and reservation details
+
+### 🏛️ Attraction Experience (ENHANCED!)
+- **Real photos**: Authentic images from Unsplash API
+- **Detailed information**: Hours, prices, visitor tips
+- **Cultural insights**: Historical context and significance
+- **Smart recommendations**: Based on interests and budget
+
+### 🌤️ Weather Integration (IMPROVED!)
+- **7-day forecasts**: Real-time weather data
+- **Chinese city support**: Enhanced city name recognition
+- **Activity planning**: Weather-appropriate recommendations
+- **Seasonal insights**: Climate patterns and best visit times
+
+### 🏨 Accommodation & Dining
+- **Hotel options**: Budget-appropriate with photos and locations
+- **Local cuisine**: Restaurant recommendations with authentic photos
+- **Cultural dining**: Local customs and specialty dishes
+- **Price transparency**: Detailed cost breakdowns
+
+### 📊 Smart Planning
+- **Multiple itinerary options**: Economic vs. Comfort scenarios
+- **Hour-by-hour scheduling**: Optimized daily plans
+- **Budget optimization**: Intelligent cost allocation
+- **Travel tips**: Practical advice and local insights
 
 ## Development
 
 ### Running Tests
 ```bash
+# Run main functionality tests
+python test_travel_agent.py
+
+# Run improvement validation tests
+python test_improvements.py
+
+# Run with pytest (if available)
 python -m pytest tests/
 ```
 
@@ -183,6 +245,14 @@ python -m pytest tests/
 black travel_agent/
 flake8 travel_agent/
 ```
+
+### Recent Improvements Validation
+The project includes comprehensive test suites that validate:
+- ✅ Smart date parsing with Chinese relative dates
+- ✅ Real-time weather data integration
+- ✅ Attraction image fetching and display
+- ✅ Transportation planning with three options
+- ✅ End-to-end system integration
 
 ### Adding New Features
 See [Travel_AI_Agent.md](Travel_AI_Agent.md) for detailed development guidelines and architecture.
@@ -212,6 +282,22 @@ For issues and questions:
 2. Review existing issues on GitHub
 3. Create a new issue with detailed information
 
+## 🎉 Recent Updates (2025-07-26)
+
+### Major Improvements Delivered
+- ✅ **Real Attraction Images** - No more placeholder gradients, authentic photos via Unsplash API
+- ✅ **Comprehensive Transportation** - Three detailed options (自驾/高铁/飞机) with costs and booking info
+- ✅ **Smart Date Parsing** - Support for "今天", "明天", "后天" with real-time system date integration
+- ✅ **Enhanced Weather** - Real OpenWeatherMap data with Chinese city support and Pinyin conversion
+- ✅ **Full Chinese Localization** - Native Chinese language processing throughout the system
+
+### Technical Enhancements
+- Enhanced `TravelPlannerAgent` with advanced date parsing
+- Improved `AttractionService` with image integration
+- Upgraded `WeatherService` with multiple city query variations
+- Enhanced HTML templates with transportation and image sections
+- Comprehensive error handling and fallback mechanisms
+
 ---
 
-**Note**: This project is designed for educational and demonstration purposes. Ensure you comply with all API terms of service and website scraping policies when using the travel planning features.
+**Note**: This project is designed for educational and demonstration purposes. The recent improvements make it production-ready for real travel planning scenarios. Ensure you comply with all API terms of service and website scraping policies when using the travel planning features.
