@@ -104,112 +104,328 @@ class AttractionService:
     def _parse_attractions_response(self, ai_response: str, destination: str) -> List[Dict[str, Any]]:
         """Parse AI response into structured attraction data."""
         try:
-            # For now, create structured sample data
-            # In a real implementation, this would parse the AI response more sophisticatedly
+            import re
             
-            sample_attractions = [
-                {
-                    'name': f'{destination} Historic Center',
-                    'description': 'Explore the historic heart of the city with centuries-old architecture, charming streets, and cultural landmarks that tell the story of the region.',
-                    'category': 'Historical',
-                    'duration': '3-4 hours',
-                    'entrance_fee': 0,
-                    'best_time': 'Morning or late afternoon',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Mostly accessible',
-                    'rating': 4.5,
-                    'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
-                    'search_keywords': [f'{destination} historic center', f'{destination} old town', f'{destination} architecture']
-                },
-                {
-                    'name': f'{destination} Art Museum',
-                    'description': 'World-class art collection featuring local and international artists, with rotating exhibitions and permanent galleries showcasing the region\'s cultural heritage.',
-                    'category': 'Cultural',
-                    'duration': '2-3 hours',
-                    'entrance_fee': 15,
-                    'best_time': 'Any time',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Restricted',
-                    'accessibility': 'Fully accessible',
-                    'rating': 4.3,
-                    'highlights': ['Art collections', 'Cultural exhibits', 'Educational tours'],
-                    'search_keywords': [f'{destination} art museum', f'{destination} gallery', f'{destination} cultural center']
-                },
-                {
-                    'name': f'{destination} Central Park',
-                    'description': 'Beautiful urban park perfect for relaxation, picnics, and outdoor activities. Features gardens, walking paths, and recreational facilities.',
-                    'category': 'Natural',
-                    'duration': '2-4 hours',
-                    'entrance_fee': 0,
-                    'best_time': 'Morning or evening',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Mostly accessible',
-                    'rating': 4.4,
-                    'highlights': ['Nature walks', 'Picnic areas', 'Photography spots'],
-                    'search_keywords': [f'{destination} park', f'{destination} garden', f'{destination} green space']
-                },
-                {
-                    'name': f'{destination} Observatory Deck',
-                    'description': 'Panoramic city views from the highest accessible point, offering breathtaking vistas especially during sunrise and sunset.',
-                    'category': 'Entertainment',
-                    'duration': '1-2 hours',
-                    'entrance_fee': 25,
-                    'best_time': 'Sunset or clear days',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Elevator access',
-                    'rating': 4.6,
-                    'highlights': ['City views', 'Photography', 'Sunset viewing'],
-                    'search_keywords': [f'{destination} viewpoint', f'{destination} observatory', f'{destination} skyline']
-                },
-                {
-                    'name': f'{destination} Local Market',
-                    'description': 'Vibrant local market where you can experience authentic culture, taste local foods, and shop for unique souvenirs and crafts.',
-                    'category': 'Cultural',
-                    'duration': '2-3 hours',
-                    'entrance_fee': 0,
-                    'best_time': 'Morning',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Limited',
-                    'rating': 4.2,
-                    'highlights': ['Local culture', 'Food tasting', 'Shopping'],
-                    'search_keywords': [f'{destination} market', f'{destination} bazaar', f'{destination} local shopping']
-                },
-                {
-                    'name': f'{destination} Waterfront Promenade',
-                    'description': 'Scenic waterfront area perfect for leisurely walks, dining, and enjoying water views. Popular spot for both locals and tourists.',
-                    'category': 'Natural',
-                    'duration': '1-3 hours',
-                    'entrance_fee': 0,
-                    'best_time': 'Evening',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Fully accessible',
-                    'rating': 4.3,
-                    'highlights': ['Water views', 'Walking paths', 'Dining options'],
-                    'search_keywords': [f'{destination} waterfront', f'{destination} promenade', f'{destination} riverside']
-                }
-            ]
+            # Try to parse the actual AI response
+            attractions = []
             
-            # Try to extract more specific information from AI response if available
-            if len(ai_response) > 200:
-                # Add AI-generated content as additional context
-                sample_attractions[0]['ai_description'] = ai_response[:300] + '...'
+            if ai_response and len(ai_response) > 100:
+                # Split the response into sections for each attraction
+                # Look for numbered items or clear attraction separators
+                attraction_sections = self._split_ai_response_into_attractions(ai_response)
+                
+                for i, section in enumerate(attraction_sections[:20]):  # Limit to 20 attractions
+                    try:
+                        attraction = self._parse_single_attraction(section, destination, i)
+                        if attraction:
+                            attractions.append(attraction)
+                    except Exception as e:
+                        logger.warning(f"Error parsing attraction section {i}: {str(e)}")
+                        continue
             
-            return sample_attractions
+            # If we couldn't parse enough attractions from AI response, supplement with defaults
+            if len(attractions) < 6:
+                logger.info(f"Only parsed {len(attractions)} attractions from AI, supplementing with defaults")
+                default_attractions = self._get_default_attractions(destination)
+                
+                # Add default attractions that don't conflict with parsed ones
+                existing_names = {attr.get('name', '').lower() for attr in attractions}
+                for default_attr in default_attractions:
+                    if default_attr.get('name', '').lower() not in existing_names:
+                        attractions.append(default_attr)
+                        if len(attractions) >= 15:  # Reasonable limit
+                            break
+            
+            # Ensure all attractions have required fields
+            attractions = [self._validate_and_complete_attraction(attr, destination) for attr in attractions]
+            
+            logger.info(f"Successfully parsed {len(attractions)} attractions from AI response")
+            return attractions
             
         except Exception as e:
             logger.error(f"Error parsing attractions response: {str(e)}")
-            return self._get_sample_attractions(destination)
+            return self._get_default_attractions(destination)
+    
+    def _split_ai_response_into_attractions(self, ai_response: str) -> List[str]:
+        """Split AI response into individual attraction sections."""
+        try:
+            # Try different splitting patterns
+            sections = []
+            
+            # Pattern 1: Numbered list (1., 2., etc.)
+            numbered_pattern = r'\d+\.\s*([^0-9]+?)(?=\d+\.|$)'
+            numbered_matches = re.findall(numbered_pattern, ai_response, re.DOTALL)
+            if len(numbered_matches) >= 3:
+                sections = numbered_matches
+            
+            # Pattern 2: Double newlines as separators
+            elif '\n\n' in ai_response:
+                sections = [s.strip() for s in ai_response.split('\n\n') if len(s.strip()) > 50]
+            
+            # Pattern 3: Single newlines with attraction names
+            elif len(sections) < 3:
+                lines = ai_response.split('\n')
+                current_section = []
+                for line in lines:
+                    line = line.strip()
+                    if line and (any(keyword in line.lower() for keyword in ['name:', 'attraction:', '**']) or 
+                               (len(current_section) > 0 and len(line) > 30)):
+                        if current_section:
+                            sections.append('\n'.join(current_section))
+                        current_section = [line]
+                    elif line:
+                        current_section.append(line)
+                
+                if current_section:
+                    sections.append('\n'.join(current_section))
+            
+            # Filter out very short sections
+            sections = [s for s in sections if len(s.strip()) > 30]
+            
+            logger.info(f"Split AI response into {len(sections)} attraction sections")
+            return sections
+            
+        except Exception as e:
+            logger.error(f"Error splitting AI response: {str(e)}")
+            return [ai_response]  # Return whole response as single section
+    
+    def _parse_single_attraction(self, section: str, destination: str, index: int) -> Dict[str, Any]:
+        """Parse a single attraction section from AI response."""
+        try:
+            import re
+            
+            attraction = {}
+            
+            # Extract name (look for patterns like "Name:", "**Name**", or first line)
+            name_patterns = [
+                r'(?:name|attraction):\s*([^\n]+)',
+                r'\*\*([^*]+)\*\*',
+                r'^([^:\n]+)(?:\n|:)',
+                r'(\d+\.\s*)?([^:\n]+)'
+            ]
+            
+            name = None
+            for pattern in name_patterns:
+                match = re.search(pattern, section, re.IGNORECASE | re.MULTILINE)
+                if match:
+                    name = match.group(-1).strip()  # Get last group
+                    name = re.sub(r'^\d+\.\s*', '', name)  # Remove numbering
+                    if len(name) > 5 and len(name) < 100:  # Reasonable name length
+                        break
+            
+            if not name:
+                name = f'{destination} Attraction {index + 1}'
+            
+            attraction['name'] = name
+            
+            # Extract description (look for description field or use remaining text)
+            desc_patterns = [
+                r'(?:description|about):\s*([^\n]+(?:\n[^\n:]+)*)',
+                r'(?:' + re.escape(name) + r'[^\n]*\n)([^\n:]+(?:\n[^\n:]+)*)'
+            ]
+            
+            description = None
+            for pattern in desc_patterns:
+                match = re.search(pattern, section, re.IGNORECASE | re.DOTALL)
+                if match:
+                    description = match.group(1).strip()
+                    if len(description) > 20:
+                        break
+            
+            if not description:
+                # Use first substantial paragraph as description
+                lines = [line.strip() for line in section.split('\n') if line.strip()]
+                for line in lines[1:]:  # Skip first line (likely the name)
+                    if len(line) > 30 and ':' not in line[:20]:
+                        description = line
+                        break
+            
+            attraction['description'] = description or f'A notable attraction in {destination} worth visiting.'
+            
+            # Extract other fields using regex patterns
+            field_patterns = {
+                'category': r'(?:category|type):\s*([^\n]+)',
+                'duration': r'(?:duration|time|visit):\s*([^\n]+)',
+                'entrance_fee': r'(?:fee|price|cost|entrance):\s*([^\n]+)',
+                'best_time': r'(?:best time|when):\s*([^\n]+)',
+                'difficulty': r'(?:difficulty|level):\s*([^\n]+)',
+                'rating': r'(?:rating|score):\s*([^\n]+)'
+            }
+            
+            for field, pattern in field_patterns.items():
+                match = re.search(pattern, section, re.IGNORECASE)
+                if match:
+                    value = match.group(1).strip()
+                    if field == 'entrance_fee':
+                        # Extract numeric value from fee
+                        fee_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                        attraction[field] = float(fee_match.group(1)) if fee_match else 0
+                    elif field == 'rating':
+                        # Extract numeric rating
+                        rating_match = re.search(r'(\d+(?:\.\d+)?)', value)
+                        attraction[field] = float(rating_match.group(1)) if rating_match else 4.0
+                    else:
+                        attraction[field] = value
+            
+            return attraction
+            
+        except Exception as e:
+            logger.error(f"Error parsing single attraction: {str(e)}")
+            return None
+    
+    def _get_default_attractions(self, destination: str) -> List[Dict[str, Any]]:
+        """Get default attractions when AI parsing fails or needs supplementing."""
+        return [
+            {
+                'name': f'{destination} Historic Center',
+                'description': 'Explore the historic heart of the city with centuries-old architecture, charming streets, and cultural landmarks that tell the story of the region.',
+                'category': 'Historical',
+                'duration': '3-4 hours',
+                'entrance_fee': 0,
+                'best_time': 'Morning or late afternoon',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Mostly accessible',
+                'rating': 4.5,
+                'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
+                'search_keywords': [f'{destination} historic center', f'{destination} old town', f'{destination} architecture']
+            },
+            {
+                'name': f'{destination} Art Museum',
+                'description': 'World-class art collection featuring local and international artists, with rotating exhibitions and permanent galleries showcasing the region\'s cultural heritage.',
+                'category': 'Cultural',
+                'duration': '2-3 hours',
+                'entrance_fee': 15,
+                'best_time': 'Any time',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Restricted',
+                'accessibility': 'Fully accessible',
+                'rating': 4.3,
+                'highlights': ['Art collections', 'Cultural exhibits', 'Educational tours'],
+                'search_keywords': [f'{destination} art museum', f'{destination} gallery', f'{destination} cultural center']
+            },
+            {
+                'name': f'{destination} Central Park',
+                'description': 'Beautiful urban park perfect for relaxation, picnics, and outdoor activities. Features gardens, walking paths, and recreational facilities.',
+                'category': 'Natural',
+                'duration': '2-4 hours',
+                'entrance_fee': 0,
+                'best_time': 'Morning or evening',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Mostly accessible',
+                'rating': 4.4,
+                'highlights': ['Nature walks', 'Picnic areas', 'Photography spots'],
+                'search_keywords': [f'{destination} park', f'{destination} garden', f'{destination} green space']
+            },
+            {
+                'name': f'{destination} Observatory Deck',
+                'description': 'Panoramic city views from the highest accessible point, offering breathtaking vistas especially during sunrise and sunset.',
+                'category': 'Entertainment',
+                'duration': '1-2 hours',
+                'entrance_fee': 25,
+                'best_time': 'Sunset or clear days',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Elevator access',
+                'rating': 4.6,
+                'highlights': ['City views', 'Photography', 'Sunset viewing'],
+                'search_keywords': [f'{destination} viewpoint', f'{destination} observatory', f'{destination} skyline']
+            },
+            {
+                'name': f'{destination} Local Market',
+                'description': 'Vibrant local market where you can experience authentic culture, taste local foods, and shop for unique souvenirs and crafts.',
+                'category': 'Cultural',
+                'duration': '2-3 hours',
+                'entrance_fee': 0,
+                'best_time': 'Morning',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Limited',
+                'rating': 4.2,
+                'highlights': ['Local culture', 'Food tasting', 'Shopping'],
+                'search_keywords': [f'{destination} market', f'{destination} bazaar', f'{destination} local shopping']
+            },
+            {
+                'name': f'{destination} Waterfront Promenade',
+                'description': 'Scenic waterfront area perfect for leisurely walks, dining, and enjoying water views. Popular spot for both locals and tourists.',
+                'category': 'Natural',
+                'duration': '1-3 hours',
+                'entrance_fee': 0,
+                'best_time': 'Evening',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Fully accessible',
+                'rating': 4.3,
+                'highlights': ['Water views', 'Walking paths', 'Dining options'],
+                'search_keywords': [f'{destination} waterfront', f'{destination} promenade', f'{destination} riverside']
+            }
+        ]
+    
+    def _validate_and_complete_attraction(self, attraction: Dict[str, Any], destination: str) -> Dict[str, Any]:
+        """Validate and complete attraction data with defaults for missing fields."""
+        try:
+            # Ensure required fields exist with defaults
+            defaults = {
+                'name': f'{destination} Attraction',
+                'description': f'A notable attraction in {destination}.',
+                'category': 'General',
+                'duration': '2-3 hours',
+                'entrance_fee': 0,
+                'best_time': 'Any time',
+                'difficulty': 'Easy',
+                'age_suitability': 'All ages',
+                'photography': 'Yes',
+                'accessibility': 'Check locally',
+                'rating': 4.0,
+                'highlights': ['Worth visiting'],
+                'search_keywords': [f'{destination} attraction']
+            }
+            
+            # Fill in missing fields
+            for key, default_value in defaults.items():
+                if key not in attraction or not attraction[key]:
+                    attraction[key] = default_value
+            
+            # Validate and clean data
+            if isinstance(attraction.get('entrance_fee'), str):
+                # Try to extract number from string
+                import re
+                fee_match = re.search(r'(\d+(?:\.\d+)?)', str(attraction['entrance_fee']))
+                attraction['entrance_fee'] = float(fee_match.group(1)) if fee_match else 0
+            
+            if isinstance(attraction.get('rating'), str):
+                # Try to extract rating from string
+                import re
+                rating_match = re.search(r'(\d+(?:\.\d+)?)', str(attraction['rating']))
+                attraction['rating'] = float(rating_match.group(1)) if rating_match else 4.0
+            
+            # Ensure rating is within valid range
+            if not isinstance(attraction.get('rating'), (int, float)) or attraction['rating'] < 1 or attraction['rating'] > 5:
+                attraction['rating'] = 4.0
+            
+            # Ensure entrance_fee is numeric
+            if not isinstance(attraction.get('entrance_fee'), (int, float)):
+                attraction['entrance_fee'] = 0
+            
+            return attraction
+            
+        except Exception as e:
+            logger.error(f"Error validating attraction: {str(e)}")
+            return {
+                'name': f'{destination} Attraction',
+                'description': f'A notable attraction in {destination}.',
+                'category': 'General',
+                'duration': '2-3 hours',
+                'entrance_fee': 0,
+                'rating': 4.0
+            }
     
     def _enhance_attraction_data(self, attractions: List[Dict[str, Any]], budget: float) -> List[Dict[str, Any]]:
         """Enhance attraction data with additional details."""

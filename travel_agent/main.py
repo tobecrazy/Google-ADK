@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from .agents.travel_planner import TravelPlannerAgent
 from .agents.data_collector import DataCollectorAgent
 from .agents.report_generator import ReportGeneratorAgent
+from .utils.date_parser import parse_date, get_current_date_info
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -137,26 +138,61 @@ def create_travel_planning_tool(
     budget: float
 ) -> Dict[str, Any]:
     """
-    Tool function for Google ADK integration.
+    Tool function for Google ADK integration with intelligent date parsing.
     
     Args:
         destination: Target destination
         departure_location: Starting location  
-        start_date: Travel start date (YYYY-MM-DD)
+        start_date: Travel start date (can be relative like "后天" or absolute like "2025-07-28")
         duration: Number of travel days
         budget: Total budget
         
     Returns:
         Travel planning result
     """
-    agent = TravelAgent()
-    return agent.plan_travel(
-        destination=destination,
-        departure_location=departure_location,
-        start_date=start_date,
-        duration=duration,
-        budget=budget
-    )
+    try:
+        # Get current date information for logging
+        current_info = get_current_date_info()
+        logger.info(f"Current date info: {current_info}")
+        logger.info(f"Received start_date parameter: '{start_date}'")
+        
+        # Parse the start_date to handle relative dates
+        parsed_start_date = parse_date(start_date)
+        logger.info(f"Parsed start_date: '{start_date}' -> '{parsed_start_date}'")
+        
+        # Log the planning request
+        logger.info(f"Planning travel: {departure_location} -> {destination}")
+        logger.info(f"Start date: {parsed_start_date} (original: {start_date})")
+        logger.info(f"Duration: {duration} days, Budget: ¥{budget}")
+        
+        # Create agent and plan travel
+        agent = TravelAgent()
+        result = agent.plan_travel(
+            destination=destination,
+            departure_location=departure_location,
+            start_date=parsed_start_date,  # Use parsed date
+            duration=duration,
+            budget=budget
+        )
+        
+        # Add date parsing info to result
+        if result.get('success'):
+            result['date_parsing'] = {
+                'original_date': start_date,
+                'parsed_date': parsed_start_date,
+                'current_date': current_info['current_date']
+            }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in create_travel_planning_tool: {str(e)}")
+        return {
+            'success': False,
+            'error': 'Error in travel planning tool',
+            'details': str(e),
+            'date_parsing_error': True
+        }
 
 
 # Google ADK Agent Configuration - Commented out due to YAML config issue
@@ -180,13 +216,4 @@ def create_travel_planning_tool(
 if __name__ == "__main__":
     # Example usage for testing
     agent = TravelAgent()
-    
-    result = agent.plan_travel(
-        destination="Tokyo, Japan",
-        departure_location="Shanghai, China",
-        start_date="2024-04-01",
-        duration=7,
-        budget=10000
-    )
-    
-    print(f"Planning result: {result}")
+    print(f"Planning result: Start Travel Agent")

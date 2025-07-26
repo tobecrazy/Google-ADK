@@ -147,6 +147,14 @@ class WeatherService:
     def _get_current_weather(self, city: str) -> Dict[str, Any]:
         """Get current weather for city validation."""
         try:
+            # Check if API key is valid
+            if not self.api_key :
+                logger.warning(f"Invalid or demo API key detected for weather service")
+                return {
+                    'success': False,
+                    'error': 'Invalid API key - using fallback data'
+                }
+            
             url = f"{self.base_url}/weather"
             params = {
                 'q': city,
@@ -156,8 +164,28 @@ class WeatherService:
             }
             
             response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
             
+            # Handle different HTTP status codes
+            if response.status_code == 404:
+                logger.warning(f"City '{city}' not found in weather API")
+                return {
+                    'success': False,
+                    'error': f'City not found: {city}'
+                }
+            elif response.status_code == 401:
+                logger.error(f"Weather API authentication failed - invalid API key")
+                return {
+                    'success': False,
+                    'error': 'Weather API authentication failed'
+                }
+            elif response.status_code == 429:
+                logger.warning(f"Weather API rate limit exceeded")
+                return {
+                    'success': False,
+                    'error': 'Weather API rate limit exceeded'
+                }
+            
+            response.raise_for_status()
             data = response.json()
             
             if data.get('cod') == 200:
@@ -174,16 +202,29 @@ class WeatherService:
                     'data': weather_data
                 }
             else:
+                logger.warning(f"Weather API returned error code: {data.get('cod')} - {data.get('message')}")
                 return {
                     'success': False,
-                    'error': data.get('message', 'Unknown error')
+                    'error': data.get('message', 'Unknown weather API error')
                 }
                 
-        except Exception as e:
-            logger.error(f"Error getting current weather: {str(e)}")
+        except requests.exceptions.Timeout:
+            logger.error(f"Weather API request timeout for city: {city}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': 'Weather API request timeout'
+            }
+        except requests.exceptions.ConnectionError:
+            logger.error(f"Weather API connection error for city: {city}")
+            return {
+                'success': False,
+                'error': 'Weather API connection error'
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error getting current weather for {city}: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Weather service error: {str(e)}'
             }
     
     def _get_forecast_data(self, city: str, start_date: str, duration: int) -> List[Dict[str, Any]]:

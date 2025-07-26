@@ -260,7 +260,7 @@ class ImageHandler:
     
     def _get_unsplash_image(self, search_term: str) -> Optional[str]:
         """
-        Get image URL from Unsplash API.
+        Get image URL from multiple image sources with fallback.
         
         Args:
             search_term: Search term for image
@@ -269,25 +269,128 @@ class ImageHandler:
             Image URL or None
         """
         try:
-            # Unsplash Source API (no API key required)
-            # This provides random images based on search terms
-            base_url = "https://source.unsplash.com/800x600"
-            search_url = f"{base_url}/?{search_term.replace(' ', '%20')}"
+            # Try multiple image sources
+            image_sources = [
+                self._try_unsplash_source(search_term),
+                self._try_picsum_image(search_term),
+                self._try_placeholder_image(search_term)
+            ]
             
-            # Test if the URL is accessible
+            for image_url in image_sources:
+                if image_url:
+                    logger.info(f"Found image for '{search_term}': {image_url}")
+                    return image_url
+            
+            logger.warning(f"No image found for '{search_term}', using placeholder")
+            return self._generate_placeholder_url(search_term)
+            
+        except Exception as e:
+            logger.error(f"Error getting image for '{search_term}': {str(e)}")
+            return self._generate_placeholder_url(search_term)
+    
+    def _try_unsplash_source(self, search_term: str) -> Optional[str]:
+        """Try to get image from Unsplash Source API."""
+        try:
+            # Clean search term for better results
+            clean_term = self._clean_search_term(search_term)
+            base_url = "https://source.unsplash.com/800x600"
+            search_url = f"{base_url}/?{clean_term}"
+            
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
             
-            response = requests.head(search_url, headers=headers, timeout=5)
+            response = requests.head(search_url, headers=headers, timeout=10, allow_redirects=True)
             if response.status_code == 200:
                 return search_url
             
             return None
             
         except Exception as e:
-            logger.error(f"Error getting Unsplash image for '{search_term}': {str(e)}")
+            logger.debug(f"Unsplash source failed for '{search_term}': {str(e)}")
             return None
+    
+    def _try_picsum_image(self, search_term: str) -> Optional[str]:
+        """Try to get a random image from Picsum (Lorem Picsum)."""
+        try:
+            # Generate a seed based on search term for consistent images
+            import hashlib
+            seed = abs(hash(search_term)) % 1000
+            picsum_url = f"https://picsum.photos/seed/{seed}/800/600"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.head(picsum_url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                return picsum_url
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Picsum failed for '{search_term}': {str(e)}")
+            return None
+    
+    def _try_placeholder_image(self, search_term: str) -> Optional[str]:
+        """Try to get image from placeholder services."""
+        try:
+            # Use placeholder.com service
+            clean_term = self._clean_search_term(search_term)
+            placeholder_url = f"https://via.placeholder.com/800x600/4A90E2/FFFFFF?text={clean_term.replace(' ', '+')}"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.head(placeholder_url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                return placeholder_url
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Placeholder service failed for '{search_term}': {str(e)}")
+            return None
+    
+    def _clean_search_term(self, search_term: str) -> str:
+        """Clean search term for better image search results."""
+        try:
+            # Remove common words that don't help with image search
+            stop_words = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
+            
+            # Split and clean
+            words = search_term.lower().split()
+            cleaned_words = [word for word in words if word not in stop_words and len(word) > 2]
+            
+            # Take first 3 most relevant words
+            cleaned_term = ' '.join(cleaned_words[:3])
+            
+            # URL encode
+            import urllib.parse
+            return urllib.parse.quote_plus(cleaned_term)
+            
+        except Exception as e:
+            logger.debug(f"Error cleaning search term '{search_term}': {str(e)}")
+            import urllib.parse
+            return urllib.parse.quote_plus(search_term)
+    
+    def _generate_placeholder_url(self, search_term: str) -> str:
+        """Generate a placeholder image URL as fallback."""
+        try:
+            # Create a simple colored placeholder with text
+            clean_term = search_term.replace(' ', '+')[:20]  # Limit length
+            colors = ['4A90E2', '50C878', 'FF6B6B', 'FFD93D', '6C5CE7', 'A29BFE']
+            
+            # Choose color based on search term hash
+            color_index = abs(hash(search_term)) % len(colors)
+            bg_color = colors[color_index]
+            
+            return f"https://via.placeholder.com/800x600/{bg_color}/FFFFFF?text={clean_term}"
+            
+        except Exception as e:
+            logger.error(f"Error generating placeholder URL: {str(e)}")
+            return "https://via.placeholder.com/800x600/CCCCCC/FFFFFF?text=No+Image"
     
     def process_travel_images(
         self,
