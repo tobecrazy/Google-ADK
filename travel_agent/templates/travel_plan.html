@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
             background-color: #f8f9fa;
@@ -127,7 +127,6 @@
 
         .budget-category {
             font-weight: 500;
-            text-transform: capitalize;
         }
 
         .budget-amount {
@@ -283,6 +282,42 @@
             margin-bottom: 15px;
         }
 
+        .ai-insights-content {
+            line-height: 1.8;
+            color: #555;
+        }
+
+        .ai-insights-content h2 {
+            color: #28a745;
+            font-size: 1.4em;
+            margin: 20px 0 10px 0;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 5px;
+        }
+
+        .ai-insights-content h3 {
+            color: #333;
+            font-size: 1.2em;
+            margin: 15px 0 8px 0;
+        }
+
+        .ai-insights-content p {
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+
+        .ai-insights-content ul {
+            margin: 10px 0 15px 20px;
+        }
+
+        .ai-insights-content li {
+            margin-bottom: 5px;
+        }
+
+        .ai-insights-content strong {
+            color: #333;
+        }
+
         /* Footer */
         .footer {
             background: #333;
@@ -398,25 +433,34 @@
             <!-- Destination Overview -->
             <div class="section">
                 <h2>🌍 目的地概览</h2>
-                <p>{{ destination_introduction }}</p>
+                <p>{{ destination_introduction or '欢迎来到这个充满魅力的旅行目的地！这里拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。' }}</p>
                 
                 {% if destination_info %}
                 <div class="info-grid mt-20">
                     <div class="info-item">
                         <strong>最佳旅行时间</strong><br>
-                        {{ destination_info.best_time_to_visit or '春秋两季' }}
+                        {% if destination_info.best_time_to_visit == 'Spring and Fall' %}春秋两季
+                        {% elif destination_info.best_time_to_visit == 'Year-round' %}全年适宜
+                        {% else %}{{ destination_info.best_time_to_visit or '春秋两季' }}
+                        {% endif %}
                     </div>
                     <div class="info-item">
                         <strong>当地货币</strong><br>
-                        {{ destination_info.local_currency or '人民币' }}
+                        {% if destination_info.local_currency == 'Local Currency' %}人民币
+                        {% else %}{{ destination_info.local_currency or '人民币' }}
+                        {% endif %}
                     </div>
                     <div class="info-item">
                         <strong>语言</strong><br>
-                        {{ destination_info.language or '中文' }}
+                        {% if destination_info.language == 'Local Language' %}中文
+                        {% else %}{{ destination_info.language or '中文' }}
+                        {% endif %}
                     </div>
                     <div class="info-item">
                         <strong>安全等级</strong><br>
-                        {{ destination_info.safety_rating or '总体安全' }}
+                        {% if destination_info.safety_rating == 'Generally Safe' %}总体安全
+                        {% else %}{{ destination_info.safety_rating or '总体安全' }}
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -424,13 +468,25 @@
 
             <!-- Travel Plans -->
             <div class="section">
-                <h2>📋 旅行计划 ({{ plans_count or 3 }} 个选项)</h2>
+                <h2>📋 旅行计划 ({{ plans_count or 2 }} 个选项)</h2>
                 <p class="text-muted mb-20">选择最适合您旅行风格和预算偏好的计划。</p>
                 
                 {% for plan in travel_plans %}
                 <div class="plan-card">
-                    <h3>{{ plan.plan_type }} 计划 - ¥{{ "%.2f"|format(plan.total_budget) }}</h3>
-                    <p class="plan-description">{{ plan.description }}</p>
+                    <h3>
+                        {% if plan.plan_type == 'Economic' %}经济型
+                        {% elif plan.plan_type == 'Comfort' %}舒适型
+                        {% elif plan.plan_type == 'Luxury' %}豪华型
+                        {% else %}{{ plan.plan_type }}
+                        {% endif %} 计划 - ¥{{ "%.2f"|format(plan.total_budget) }}
+                    </h3>
+                    <p class="plan-description">
+                        {% if 'Budget-friendly' in (plan.description or '') %}注重性价比的经济型旅行计划，专注于核心体验和必游景点
+                        {% elif 'Comfortable' in (plan.description or '') %}舒适便捷的旅行计划，提供优质体验和贴心服务
+                        {% elif 'Luxury' in (plan.description or '') %}豪华尊享的旅行计划，提供顶级服务和独特体验
+                        {% else %}{{ plan.description or '为您精心定制的旅行计划，确保完美的旅行体验' }}
+                        {% endif %}
+                    </p>
                     
                     <div class="budget-allocation">
                         <h4>💰 预算分配：</h4>
@@ -455,7 +511,20 @@
                         <h4>💡 此计划的建议：</h4>
                         <ul>
                         {% for tip in plan.tips %}
-                            <li>{{ tip }}</li>
+                            <li>
+                                {% if 'Book accommodations in advance' in tip %}提前预订住宿以获得更好的价格
+                                {% elif 'Use public transportation' in tip %}尽可能使用公共交通工具
+                                {% elif 'Try local street food' in tip %}尝试当地街头美食，体验正宗且实惠的餐饮
+                                {% elif 'Look for free walking tours' in tip %}寻找免费的步行游览和活动
+                                {% elif 'Visit attractions during off-peak' in tip %}在非高峰时段参观景点以获得折扣
+                                {% elif 'Book premium accommodations' in tip %}预订设施完善的优质住宿
+                                {% elif 'Consider private transportation' in tip %}考虑私人交通工具以获得便利
+                                {% elif 'Make reservations at recommended' in tip %}在推荐餐厅提前预订
+                                {% elif 'Purchase skip-the-line tickets' in tip %}购买热门景点的免排队门票
+                                {% elif 'Consider guided tours' in tip %}考虑参加导游服务以获得更深入的文化体验
+                                {% else %}{{ tip }}
+                                {% endif %}
+                            </li>
                         {% endfor %}
                         </ul>
                     </div>
@@ -473,8 +542,16 @@
                     {% for day in weather_forecast[:7] %}
                     <div class="weather-day">
                         <div class="date">{{ day.date or '第' + loop.index|string + '天' }}</div>
-                        <div class="condition">{{ day.condition or '多云' }}</div>
-                        <div class="temperature">{{ day.temperature or '22°C' }}</div>
+                        <div class="condition">
+                            {% if day.condition == 'Sunny' %}晴天
+                            {% elif day.condition == 'Cloudy' %}多云
+                            {% elif day.condition == 'Clear' %}晴朗
+                            {% elif day.condition == 'Partly Cloudy' %}局部多云
+                            {% elif day.condition == 'Rainy' %}雨天
+                            {% else %}{{ day.condition or '多云' }}
+                            {% endif %}
+                        </div>
+                        <div class="temperature">{{ day.temperature or '22' }}°C</div>
                     </div>
                     {% endfor %}
                 </div>
@@ -489,8 +566,34 @@
                 <div class="grid">
                     {% for attraction in attractions %}
                     <div class="card">
-                        <h4>{{ attraction.name or '当地景点' }}</h4>
-                        <p>{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}</p>
+                        {% if attraction.image_url %}
+                        <div style="width: 100%; height: 200px; background-image: url('{{ attraction.image_url }}'); background-size: cover; background-position: center; border-radius: 8px; margin-bottom: 15px;"></div>
+                        {% else %}
+                        <div style="width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">📸 {{ attraction.name or '景点图片' }}</div>
+                        {% endif %}
+                        
+                        <h4>
+                            {% if 'Observatory Deck' in (attraction.name or '') %}{{ destination }}观景台
+                            {% elif 'Historic Center' in (attraction.name or '') %}{{ destination }}历史中心
+                            {% elif 'Central Park' in (attraction.name or '') %}{{ destination }}中央公园
+                            {% elif 'Waterfront Promenade' in (attraction.name or '') %}{{ destination }}滨水步道
+                            {% elif 'Art Museum' in (attraction.name or '') %}{{ destination }}艺术博物馆
+                            {% elif 'Local Market' in (attraction.name or '') %}{{ destination }}当地市场
+                            {% else %}{{ attraction.name or '当地景点' }}
+                            {% endif %}
+                        </h4>
+                        
+                        <p>
+                            {% if 'Panoramic city views' in (attraction.description or '') %}全景城市观景台，可欣赏到城市最美的全景视野，特别是日出日落时分景色格外迷人。
+                            {% elif 'historic heart of the city' in (attraction.description or '') %}探索城市历史中心，这里有数百年历史的古建筑、迷人的街道和讲述地区故事的文化地标。
+                            {% elif 'Beautiful urban park' in (attraction.description or '') %}美丽的城市公园，是放松休闲、野餐和户外活动的完美场所。设有花园、步行道和娱乐设施。
+                            {% elif 'Scenic waterfront area' in (attraction.description or '') %}风景优美的滨水区域，适合悠闲漫步、用餐和欣赏水景。是当地人和游客都喜爱的热门景点。
+                            {% elif 'World-class art collection' in (attraction.description or '') %}世界级艺术收藏，展示本地和国际艺术家作品，设有轮换展览和常设画廊，展现该地区的文化遗产。
+                            {% elif 'Vibrant local market' in (attraction.description or '') %}充满活力的当地市场，您可以体验正宗文化、品尝当地美食、购买独特纪念品和手工艺品。
+                            {% else %}{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}
+                            {% endif %}
+                        </p>
+                        
                         <div class="card-meta">
                             <span class="rating">⭐ {{ attraction.rating or '4.5' }}/5</span>
                             {% if attraction.entrance_fee %}
@@ -501,7 +604,10 @@
                         </div>
                         {% if attraction.duration %}
                         <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>游览时长：</strong> {{ attraction.duration }}
+                            <strong>游览时长：</strong> 
+                            {% if 'hours' in (attraction.duration or '') %}{{ attraction.duration|replace('hours', '小时')|replace('hour', '小时')|replace('-', ' - ') }}
+                            {% else %}{{ attraction.duration or '2-3小时' }}
+                            {% endif %}
                         </div>
                         {% endif %}
                     </div>
@@ -518,9 +624,30 @@
                 <div class="grid">
                     {% for restaurant in dining_options %}
                     <div class="card">
-                        <h4>{{ restaurant.name or '当地餐厅' }}</h4>
-                        <p><strong>菜系：</strong> {{ restaurant.cuisine or '当地菜系' }}</p>
-                        <p><strong>价格区间：</strong> {{ restaurant.price_range or '中等价位' }}</p>
+                        <h4>
+                            {% if 'Local Specialty Restaurant' in (restaurant.name or '') %}当地特色餐厅
+                            {% elif 'Street Food Market' in (restaurant.name or '') %}街头美食市场
+                            {% elif 'Fine Dining Experience' in (restaurant.name or '') %}高端餐饮体验
+                            {% else %}{{ restaurant.name or '当地餐厅' }}
+                            {% endif %}
+                        </h4>
+                        
+                        <p><strong>菜系：</strong> 
+                            {% if restaurant.cuisine == 'Local Cuisine' %}当地菜系
+                            {% elif restaurant.cuisine == 'Street Food' %}街头小食
+                            {% elif restaurant.cuisine == 'International' %}国际料理
+                            {% else %}{{ restaurant.cuisine or '当地菜系' }}
+                            {% endif %}
+                        </p>
+                        
+                        <p><strong>价格区间：</strong> 
+                            {% if restaurant.price_range == 'Budget' %}经济实惠
+                            {% elif restaurant.price_range == 'Mid-range' %}中等价位
+                            {% elif restaurant.price_range == 'High-end' %}高端消费
+                            {% else %}{{ restaurant.price_range or '中等价位' }}
+                            {% endif %}
+                        </p>
+                        
                         <div class="card-meta">
                             <span class="rating">⭐ {{ restaurant.rating or '4.2' }}/5</span>
                             {% if restaurant.estimated_cost %}
@@ -529,7 +656,19 @@
                         </div>
                         {% if restaurant.specialties %}
                         <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>招牌菜：</strong> {{ restaurant.specialties|join(', ') }}
+                            <strong>招牌菜：</strong> 
+                            {% set chinese_specialties = [] %}
+                            {% for specialty in restaurant.specialties %}
+                                {% if specialty == 'Local Dish 1' %}{% set _ = chinese_specialties.append('招牌菜1') %}
+                                {% elif specialty == 'Local Dish 2' %}{% set _ = chinese_specialties.append('招牌菜2') %}
+                                {% elif specialty == 'Street Snacks' %}{% set _ = chinese_specialties.append('街头小食') %}
+                                {% elif specialty == 'Local Beverages' %}{% set _ = chinese_specialties.append('当地饮品') %}
+                                {% elif specialty == 'Signature Dishes' %}{% set _ = chinese_specialties.append('招牌菜品') %}
+                                {% elif specialty == 'Wine Pairing' %}{% set _ = chinese_specialties.append('配酒套餐') %}
+                                {% else %}{% set _ = chinese_specialties.append(specialty) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ chinese_specialties|join(', ') }}
                         </div>
                         {% endif %}
                     </div>
@@ -547,7 +686,14 @@
                     <h3>🗣️ 常用语句</h3>
                     <div class="info-grid">
                         {% for phrase in useful_phrases %}
-                        <div class="info-item">{{ phrase }}</div>
+                        <div class="info-item">
+                            {% if phrase == 'Hello' %}你好
+                            {% elif phrase == 'Thank you' %}谢谢
+                            {% elif phrase == 'Excuse me' %}不好意思
+                            {% elif phrase == 'How much?' %}多少钱？
+                            {% else %}{{ phrase }}
+                            {% endif %}
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -555,16 +701,10 @@
 
                 <div class="mb-20">
                     <h3>🚨 紧急联系电话</h3>
-                    {% if emergency_numbers %}
-                        {% for contact in emergency_numbers %}
-                        <div class="emergency-contact">{{ contact }}</div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="emergency-contact">🚔 报警电话：110</div>
-                        <div class="emergency-contact">🚑 急救电话：120</div>
-                        <div class="emergency-contact">🚒 火警电话：119</div>
-                        <div class="emergency-contact">🚨 旅游投诉：12301</div>
-                    {% endif %}
+                    <div class="emergency-contact">🚔 报警电话：110</div>
+                    <div class="emergency-contact">🚑 急救电话：120</div>
+                    <div class="emergency-contact">🚒 火警电话：119</div>
+                    <div class="emergency-contact">🚨 旅游投诉：12301</div>
                 </div>
 
                 {% if cultural_etiquette %}
@@ -585,17 +725,8 @@
                 <h2>🤖 AI 旅行洞察</h2>
                 <div class="ai-insights">
                     <h3>个性化推荐</h3>
-                    <div style="line-height: 1.8; color: #555;">
-                        {% if ai_insights is string %}
-                            <div style="white-space: pre-wrap; font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;">{{ ai_insights }}</div>
-                        {% else %}
-                            {% for insight in ai_insights %}
-                                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
-                                    <div style="font-weight: 500; color: #333; margin-bottom: 8px;">{{ insight.title or '推荐' }}</div>
-                                    <div>{{ insight.content or insight }}</div>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
+                    <div class="ai-insights-content">
+                        {{ ai_insights|replace('**', '<strong>')|replace('**', '</strong>')|replace('*', '<em>')|replace('*', '</em>')|replace('\n\n', '</p><p>')|replace('\n', '<br>')|safe }}
                     </div>
                 </div>
             </div>
@@ -675,11 +806,11 @@
         // Add click-to-copy functionality for emergency numbers
         document.querySelectorAll('.emergency-contact').forEach(contact => {
             contact.style.cursor = 'pointer';
-            contact.title = 'Click to copy';
+            contact.title = '点击复制';
             contact.addEventListener('click', function() {
                 navigator.clipboard.writeText(this.textContent).then(() => {
                     const originalText = this.textContent;
-                    this.textContent = 'Copied!';
+                    this.textContent = '已复制!';
                     setTimeout(() => {
                         this.textContent = originalText;
                     }, 1000);
