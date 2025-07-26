@@ -5,6 +5,7 @@ Core planning logic for generating optimized travel itineraries
 
 import os
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
@@ -27,8 +28,75 @@ class TravelPlannerAgent:
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         
+        # Date mappings for Chinese relative dates
+        self.date_mappings = {
+            "今天": 0,
+            "明天": 1,
+            "后天": 2,
+            "大后天": 3
+        }
+        
         logger.info("Travel Planner Agent initialized")
     
+    def parse_date_input(self, date_input: str) -> str:
+        """
+        Parse date input and convert relative dates to absolute dates.
+        
+        Args:
+            date_input: Date input (can be relative like "今天", "明天" or absolute like "2025-07-27")
+            
+        Returns:
+            Standardized date string in YYYY-MM-DD format
+        """
+        try:
+            # Get current system date
+            today = datetime.now().date()
+            
+            # Handle Chinese relative dates
+            if date_input in self.date_mappings:
+                target_date = today + timedelta(days=self.date_mappings[date_input])
+                return target_date.strftime('%Y-%m-%d')
+            
+            # Handle absolute dates in various formats
+            date_patterns = [
+                r'(\d{4})-(\d{1,2})-(\d{1,2})',  # YYYY-MM-DD
+                r'(\d{4})/(\d{1,2})/(\d{1,2})',  # YYYY/MM/DD
+                r'(\d{1,2})-(\d{1,2})-(\d{4})',  # DD-MM-YYYY
+                r'(\d{1,2})/(\d{1,2})/(\d{4})'   # DD/MM/YYYY
+            ]
+            
+            for pattern in date_patterns:
+                match = re.match(pattern, date_input.strip())
+                if match:
+                    if len(match.group(1)) == 4:  # YYYY first
+                        year, month, day = match.groups()
+                    else:  # DD first
+                        day, month, year = match.groups()
+                    
+                    parsed_date = datetime(int(year), int(month), int(day)).date()
+                    
+                    # Validate date is not in the past
+                    if parsed_date < today:
+                        logger.warning(f"Date {date_input} is in the past, using today instead")
+                        return today.strftime('%Y-%m-%d')
+                    
+                    return parsed_date.strftime('%Y-%m-%d')
+            
+            # If no pattern matches, try to parse as-is
+            try:
+                parsed_date = datetime.strptime(date_input, '%Y-%m-%d').date()
+                if parsed_date < today:
+                    logger.warning(f"Date {date_input} is in the past, using today instead")
+                    return today.strftime('%Y-%m-%d')
+                return parsed_date.strftime('%Y-%m-%d')
+            except ValueError:
+                logger.warning(f"Could not parse date {date_input}, using today")
+                return today.strftime('%Y-%m-%d')
+                
+        except Exception as e:
+            logger.error(f"Error parsing date {date_input}: {str(e)}")
+            return datetime.now().date().strftime('%Y-%m-%d')
+
     def generate_plans(
         self,
         travel_data: Dict[str, Any],
@@ -503,34 +571,141 @@ class TravelPlannerAgent:
         budget: float,
         preference: str
     ) -> Dict[str, Any]:
-        """Plan transportation based on budget and preferences."""
+        """Plan comprehensive transportation including self-driving, high-speed rail, and flights."""
         try:
-            plan = {
+            intercity_budget = budget * 0.6
+            local_budget = budget * 0.4
+            
+            # Enhanced transportation planning with three main options
+            transport_options = {
+                'self_driving': {
+                    'type': '自驾',
+                    'estimated_cost': intercity_budget * 0.4,  # Usually cheaper
+                    'duration': '根据距离而定',
+                    'pros': ['完全自由', '门到门服务', '可随时停靠', '适合多人出行'],
+                    'cons': ['需要驾照', '停车费用', '疲劳驾驶风险', '路况影响'],
+                    'includes': {
+                        'fuel_cost': intercity_budget * 0.2,
+                        'tolls': intercity_budget * 0.1,
+                        'parking': intercity_budget * 0.1,
+                        'insurance': '建议购买旅行保险'
+                    },
+                    'tips': [
+                        '提前规划路线和休息点',
+                        '检查车辆状况',
+                        '准备应急工具包',
+                        '了解目的地停车情况'
+                    ],
+                    'best_for': '喜欢自由行程的旅客'
+                },
+                'high_speed_rail': {
+                    'type': '高铁',
+                    'estimated_cost': intercity_budget * 0.6,
+                    'duration': '通常比普通火车快50%',
+                    'pros': ['舒适快捷', '准点率高', '市中心到市中心', '环保选择'],
+                    'cons': ['需要提前订票', '班次有限', '价格较高'],
+                    'booking_info': {
+                        'advance_booking': '建议提前7-30天预订',
+                        'seat_types': ['二等座', '一等座', '商务座'],
+                        'discounts': '学生、老人可享受优惠',
+                        'refund_policy': '开车前可退票，收取手续费'
+                    },
+                    'tips': [
+                        '使用12306官方APP订票',
+                        '选择合适的座位等级',
+                        '提前到达车站安检',
+                        '携带身份证件'
+                    ],
+                    'best_for': '追求舒适和效率的旅客'
+                },
+                'airplane': {
+                    'type': '飞机',
+                    'estimated_cost': intercity_budget * 0.8,
+                    'duration': '最快选择，但需考虑机场时间',
+                    'pros': ['速度最快', '长距离首选', '多航班选择', '服务标准化'],
+                    'cons': ['机场往返时间', '天气影响', '行李限制', '安检时间'],
+                    'booking_info': {
+                        'advance_booking': '建议提前2-8周预订获得最佳价格',
+                        'airlines': '比较不同航空公司价格和服务',
+                        'baggage': '了解行李政策避免额外费用',
+                        'check_in': '提前网上值机选座'
+                    },
+                    'airport_transfer': {
+                        'options': ['机场大巴', '地铁', '出租车', '网约车'],
+                        'estimated_cost': local_budget * 0.2,
+                        'tips': '预留充足的机场往返时间'
+                    },
+                    'tips': [
+                        '比较不同预订平台价格',
+                        '关注航班动态',
+                        '提前2小时到达机场',
+                        '考虑购买延误险'
+                    ],
+                    'best_for': '时间紧张或长距离旅行的旅客'
+                }
+            }
+            
+            # Local transportation planning
+            local_transport = {
+                'daily_budget': local_budget / 7,
+                'options': {
+                    'public_transport': {
+                        'types': ['地铁', '公交', '轻轨'],
+                        'cost': '经济实惠',
+                        'coverage': '覆盖主要景点',
+                        'tips': '购买交通卡享受优惠'
+                    },
+                    'taxi_rideshare': {
+                        'services': ['出租车', '滴滴', '网约车'],
+                        'cost': '中等价位',
+                        'convenience': '门到门服务',
+                        'tips': '使用APP叫车更方便'
+                    },
+                    'walking_cycling': {
+                        'walkability': '市中心步行友好',
+                        'bike_sharing': '共享单车可用',
+                        'cost': '最经济',
+                        'tips': '适合短距离和观光'
+                    }
+                }
+            }
+            
+            # Recommendation based on preference
+            if preference == 'economic':
+                recommended = 'self_driving'
+                reason = '自驾游成本相对较低，且自由度高'
+            elif preference == 'comfort':
+                recommended = 'high_speed_rail'
+                reason = '高铁舒适便捷，准点率高'
+            else:
+                recommended = 'airplane'
+                reason = '飞机速度快，适合时间有限的旅客'
+            
+            return {
                 'budget': budget,
-                'intercity_transport': {
-                    'options': transport_data.get('options', []),
-                    'recommended': 'Flight' if preference == 'comfort' else 'Train/Bus',
-                    'estimated_cost': budget * 0.6
+                'intercity_options': transport_options,
+                'local_transport': local_transport,
+                'recommendation': {
+                    'preferred': recommended,
+                    'reason': reason,
+                    'estimated_total_cost': transport_options[recommended]['estimated_cost'] + local_budget
                 },
-                'local_transport': {
-                    'primary': 'Public Transit' if preference == 'budget' else 'Mixed',
-                    'options': ['Metro/Subway', 'Bus', 'Taxi', 'Ride-sharing', 'Walking'],
-                    'daily_budget': (budget * 0.4) / 7,
-                    'transport_pass': 'Consider weekly transport pass for savings'
-                },
-                'tips': [
-                    'Book intercity transport in advance for better rates',
-                    'Use transport apps for real-time information',
-                    'Consider walking for short distances',
-                    'Keep emergency transport budget'
+                'general_tips': [
+                    '提前比较各种交通方式的价格和时间',
+                    '考虑旅行保险覆盖交通延误',
+                    '保留所有交通票据以备报销',
+                    '下载相关交通APP获取实时信息'
                 ]
             }
             
-            return plan
-            
         except Exception as e:
             logger.error(f"Error planning transportation: {str(e)}")
-            return {}
+            return {
+                'budget': budget,
+                'error': str(e),
+                'intercity_options': {},
+                'local_transport': {}
+            }
     
     def _add_custom_features(self, preferences: Dict[str, Any]) -> List[str]:
         """Add custom features based on user preferences."""

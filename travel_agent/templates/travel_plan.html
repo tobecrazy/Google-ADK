@@ -193,34 +193,64 @@
         /* Grid Layouts */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
             margin: 25px 0;
         }
 
         .card {
             background: white;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
         }
 
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 220px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover .card-image img {
+            transform: scale(1.05);
+        }
+
+        .card-content {
+            padding: 20px;
         }
 
         .card h4 {
             color: #333;
-            margin-bottom: 10px;
-            font-size: 1.2em;
+            margin-bottom: 12px;
+            font-size: 1.3em;
+            font-weight: 600;
+            line-height: 1.3;
         }
 
         .card p {
             color: #666;
             margin-bottom: 15px;
+            line-height: 1.5;
+            font-size: 0.95em;
         }
 
         .card-meta {
@@ -236,11 +266,29 @@
         .rating {
             color: #ff6b35;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .price {
             color: #28a745;
             font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .card-duration {
+            margin-top: 10px;
+            color: #666;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .card-duration::before {
+            content: "⏱️";
+            font-size: 0.9em;
         }
 
         /* Practical Information */
@@ -466,6 +514,76 @@
                 {% endif %}
             </div>
 
+            <!-- Transportation Planning -->
+            {% if transportation_options %}
+            <div class="section">
+                <h2>🚗 交通规划</h2>
+                <p class="text-muted mb-20">为您提供三种主要交通方式的详细规划和建议。</p>
+                
+                <div class="grid">
+                    {% for transport_type, details in transportation_options.items() %}
+                    <div class="card">
+                        <div class="card-content">
+                            <h4>{{ details.type }}</h4>
+                            <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost) }}</p>
+                            <p><strong>行程时间：</strong> {{ details.duration }}</p>
+                            
+                            <div style="margin: 15px 0;">
+                                <strong>优点：</strong>
+                                <ul style="margin: 5px 0 0 20px;">
+                                    {% for pro in details.pros %}
+                                    <li>{{ pro }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            
+                            <div style="margin: 15px 0;">
+                                <strong>缺点：</strong>
+                                <ul style="margin: 5px 0 0 20px;">
+                                    {% for con in details.cons %}
+                                    <li>{{ con }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            
+                            {% if details.booking_info %}
+                            <div style="margin: 15px 0; padding: 10px; background: #f0f8ff; border-radius: 5px;">
+                                <strong>预订信息：</strong>
+                                {% for key, value in details.booking_info.items() %}
+                                <div style="margin: 5px 0;">
+                                    <strong>{{ key.replace('_', ' ').title() }}:</strong> {{ value }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            <div style="margin: 15px 0;">
+                                <strong>实用建议：</strong>
+                                <ul style="margin: 5px 0 0 20px;">
+                                    {% for tip in details.tips %}
+                                    <li>{{ tip }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            
+                            <div style="margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 5px;">
+                                <strong>适合人群：</strong> {{ details.best_for }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if transportation_recommendation %}
+                <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; border-radius: 5px;">
+                    <h4 style="color: #856404; margin-bottom: 10px;">💡 推荐方案</h4>
+                    <p><strong>{{ transportation_recommendation.preferred.replace('_', ' ').title() }}:</strong> {{ transportation_recommendation.reason }}</p>
+                    <p><strong>预估总费用：</strong> ¥{{ "%.0f"|format(transportation_recommendation.estimated_total_cost) }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- Travel Plans -->
             <div class="section">
                 <h2>📋 旅行计划 ({{ plans_count or 2 }} 个选项)</h2>
@@ -566,50 +684,56 @@
                 <div class="grid">
                     {% for attraction in attractions %}
                     <div class="card">
-                        {% if attraction.image_url %}
-                        <div style="width: 100%; height: 200px; background-image: url('{{ attraction.image_url }}'); background-size: cover; background-position: center; border-radius: 8px; margin-bottom: 15px;"></div>
-                        {% else %}
-                        <div style="width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">📸 {{ attraction.name or '景点图片' }}</div>
-                        {% endif %}
-                        
-                        <h4>
-                            {% if 'Observatory Deck' in (attraction.name or '') %}{{ destination }}观景台
-                            {% elif 'Historic Center' in (attraction.name or '') %}{{ destination }}历史中心
-                            {% elif 'Central Park' in (attraction.name or '') %}{{ destination }}中央公园
-                            {% elif 'Waterfront Promenade' in (attraction.name or '') %}{{ destination }}滨水步道
-                            {% elif 'Art Museum' in (attraction.name or '') %}{{ destination }}艺术博物馆
-                            {% elif 'Local Market' in (attraction.name or '') %}{{ destination }}当地市场
-                            {% else %}{{ attraction.name or '当地景点' }}
-                            {% endif %}
-                        </h4>
-                        
-                        <p>
-                            {% if 'Panoramic city views' in (attraction.description or '') %}全景城市观景台，可欣赏到城市最美的全景视野，特别是日出日落时分景色格外迷人。
-                            {% elif 'historic heart of the city' in (attraction.description or '') %}探索城市历史中心，这里有数百年历史的古建筑、迷人的街道和讲述地区故事的文化地标。
-                            {% elif 'Beautiful urban park' in (attraction.description or '') %}美丽的城市公园，是放松休闲、野餐和户外活动的完美场所。设有花园、步行道和娱乐设施。
-                            {% elif 'Scenic waterfront area' in (attraction.description or '') %}风景优美的滨水区域，适合悠闲漫步、用餐和欣赏水景。是当地人和游客都喜爱的热门景点。
-                            {% elif 'World-class art collection' in (attraction.description or '') %}世界级艺术收藏，展示本地和国际艺术家作品，设有轮换展览和常设画廊，展现该地区的文化遗产。
-                            {% elif 'Vibrant local market' in (attraction.description or '') %}充满活力的当地市场，您可以体验正宗文化、品尝当地美食、购买独特纪念品和手工艺品。
-                            {% else %}{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}
-                            {% endif %}
-                        </p>
-                        
-                        <div class="card-meta">
-                            <span class="rating">⭐ {{ attraction.rating or '4.5' }}/5</span>
-                            {% if attraction.entrance_fee %}
-                            <span class="price">¥{{ attraction.entrance_fee }}</span>
+                        <div class="card-image">
+                            {% if attraction.image_url %}
+                            <img src="{{ attraction.image_url }}" alt="{{ attraction.name or '景点图片' }}" loading="lazy">
                             {% else %}
-                            <span class="price">免费</span>
+                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">
+                                📸 {{ attraction.name or '景点图片' }}
+                            </div>
                             {% endif %}
                         </div>
-                        {% if attraction.duration %}
-                        <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>游览时长：</strong> 
-                            {% if 'hours' in (attraction.duration or '') %}{{ attraction.duration|replace('hours', '小时')|replace('hour', '小时')|replace('-', ' - ') }}
-                            {% else %}{{ attraction.duration or '2-3小时' }}
+                        
+                        <div class="card-content">
+                            <h4>
+                                {% if 'Observatory Deck' in (attraction.name or '') %}{{ destination }}观景台
+                                {% elif 'Historic Center' in (attraction.name or '') %}{{ destination }}历史中心
+                                {% elif 'Central Park' in (attraction.name or '') %}{{ destination }}中央公园
+                                {% elif 'Waterfront Promenade' in (attraction.name or '') %}{{ destination }}滨水步道
+                                {% elif 'Art Museum' in (attraction.name or '') %}{{ destination }}艺术博物馆
+                                {% elif 'Local Market' in (attraction.name or '') %}{{ destination }}当地市场
+                                {% else %}{{ attraction.name or '当地景点' }}
+                                {% endif %}
+                            </h4>
+                            
+                            <p>
+                                {% if 'Panoramic city views' in (attraction.description or '') %}全景城市观景台，可欣赏到城市最美的全景视野，特别是日出日落时分景色格外迷人。
+                                {% elif 'historic heart of the city' in (attraction.description or '') %}探索城市历史中心，这里有数百年历史的古建筑、迷人的街道和讲述地区故事的文化地标。
+                                {% elif 'Beautiful urban park' in (attraction.description or '') %}美丽的城市公园，是放松休闲、野餐和户外活动的完美场所。设有花园、步行道和娱乐设施。
+                                {% elif 'Scenic waterfront area' in (attraction.description or '') %}风景优美的滨水区域，适合悠闲漫步、用餐和欣赏水景。是当地人和游客都喜爱的热门景点。
+                                {% elif 'World-class art collection' in (attraction.description or '') %}世界级艺术收藏，展示本地和国际艺术家作品，设有轮换展览和常设画廊，展现该地区的文化遗产。
+                                {% elif 'Vibrant local market' in (attraction.description or '') %}充满活力的当地市场，您可以体验正宗文化、品尝当地美食、购买独特纪念品和手工艺品。
+                                {% else %}{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}
+                                {% endif %}
+                            </p>
+                            
+                            <div class="card-meta">
+                                <span class="rating">⭐ {{ attraction.rating or '4.5' }}/5</span>
+                                {% if attraction.entrance_fee %}
+                                <span class="price">¥{{ attraction.entrance_fee }}</span>
+                                {% else %}
+                                <span class="price">免费</span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if attraction.duration %}
+                            <div class="card-duration">
+                                {% if 'hours' in (attraction.duration or '') %}{{ attraction.duration|replace('hours', '小时')|replace('hour', '小时')|replace('-', ' - ') }}
+                                {% else %}{{ attraction.duration or '2-3小时' }}
+                                {% endif %}
+                            </div>
                             {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -624,53 +748,66 @@
                 <div class="grid">
                     {% for restaurant in dining_options %}
                     <div class="card">
-                        <h4>
-                            {% if 'Local Specialty Restaurant' in (restaurant.name or '') %}当地特色餐厅
-                            {% elif 'Street Food Market' in (restaurant.name or '') %}街头美食市场
-                            {% elif 'Fine Dining Experience' in (restaurant.name or '') %}高端餐饮体验
-                            {% else %}{{ restaurant.name or '当地餐厅' }}
-                            {% endif %}
-                        </h4>
-                        
-                        <p><strong>菜系：</strong> 
-                            {% if restaurant.cuisine == 'Local Cuisine' %}当地菜系
-                            {% elif restaurant.cuisine == 'Street Food' %}街头小食
-                            {% elif restaurant.cuisine == 'International' %}国际料理
-                            {% else %}{{ restaurant.cuisine or '当地菜系' }}
-                            {% endif %}
-                        </p>
-                        
-                        <p><strong>价格区间：</strong> 
-                            {% if restaurant.price_range == 'Budget' %}经济实惠
-                            {% elif restaurant.price_range == 'Mid-range' %}中等价位
-                            {% elif restaurant.price_range == 'High-end' %}高端消费
-                            {% else %}{{ restaurant.price_range or '中等价位' }}
-                            {% endif %}
-                        </p>
-                        
-                        <div class="card-meta">
-                            <span class="rating">⭐ {{ restaurant.rating or '4.2' }}/5</span>
-                            {% if restaurant.estimated_cost %}
-                            <span class="price">¥{{ "%.0f"|format(restaurant.estimated_cost) }}</span>
+                        <div class="card-image">
+                            {% if restaurant.image_url %}
+                            <img src="{{ restaurant.image_url }}" alt="{{ restaurant.name or '餐厅图片' }}" loading="lazy">
+                            {% else %}
+                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">
+                                🍽️ {{ restaurant.name or '餐厅图片' }}
+                            </div>
                             {% endif %}
                         </div>
-                        {% if restaurant.specialties %}
-                        <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>招牌菜：</strong> 
-                            {% set chinese_specialties = [] %}
-                            {% for specialty in restaurant.specialties %}
-                                {% if specialty == 'Local Dish 1' %}{% set _ = chinese_specialties.append('招牌菜1') %}
-                                {% elif specialty == 'Local Dish 2' %}{% set _ = chinese_specialties.append('招牌菜2') %}
-                                {% elif specialty == 'Street Snacks' %}{% set _ = chinese_specialties.append('街头小食') %}
-                                {% elif specialty == 'Local Beverages' %}{% set _ = chinese_specialties.append('当地饮品') %}
-                                {% elif specialty == 'Signature Dishes' %}{% set _ = chinese_specialties.append('招牌菜品') %}
-                                {% elif specialty == 'Wine Pairing' %}{% set _ = chinese_specialties.append('配酒套餐') %}
-                                {% else %}{% set _ = chinese_specialties.append(specialty) %}
+                        
+                        <div class="card-content">
+                            <h4>
+                                {% if 'Local Specialty Restaurant' in (restaurant.name or '') %}当地特色餐厅
+                                {% elif 'Street Food Market' in (restaurant.name or '') %}街头美食市场
+                                {% elif 'Fine Dining Experience' in (restaurant.name or '') %}高端餐饮体验
+                                {% else %}{{ restaurant.name or '当地餐厅' }}
                                 {% endif %}
-                            {% endfor %}
-                            {{ chinese_specialties|join(', ') }}
+                            </h4>
+                            
+                            <p><strong>菜系：</strong> 
+                                {% if restaurant.cuisine == 'Local Cuisine' %}当地菜系
+                                {% elif restaurant.cuisine == 'Street Food' %}街头小食
+                                {% elif restaurant.cuisine == 'International' %}国际料理
+                                {% else %}{{ restaurant.cuisine or '当地菜系' }}
+                                {% endif %}
+                            </p>
+                            
+                            <p><strong>价格区间：</strong> 
+                                {% if restaurant.price_range == 'Budget' %}经济实惠
+                                {% elif restaurant.price_range == 'Mid-range' %}中等价位
+                                {% elif restaurant.price_range == 'High-end' %}高端消费
+                                {% else %}{{ restaurant.price_range or '中等价位' }}
+                                {% endif %}
+                            </p>
+                            
+                            <div class="card-meta">
+                                <span class="rating">⭐ {{ restaurant.rating or '4.2' }}/5</span>
+                                {% if restaurant.estimated_cost %}
+                                <span class="price">¥{{ "%.0f"|format(restaurant.estimated_cost) }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if restaurant.specialties %}
+                            <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                                <strong>招牌菜：</strong> 
+                                {% set chinese_specialties = [] %}
+                                {% for specialty in restaurant.specialties %}
+                                    {% if specialty == 'Local Dish 1' %}{% set _ = chinese_specialties.append('招牌菜1') %}
+                                    {% elif specialty == 'Local Dish 2' %}{% set _ = chinese_specialties.append('招牌菜2') %}
+                                    {% elif specialty == 'Street Snacks' %}{% set _ = chinese_specialties.append('街头小食') %}
+                                    {% elif specialty == 'Local Beverages' %}{% set _ = chinese_specialties.append('当地饮品') %}
+                                    {% elif specialty == 'Signature Dishes' %}{% set _ = chinese_specialties.append('招牌菜品') %}
+                                    {% elif specialty == 'Wine Pairing' %}{% set _ = chinese_specialties.append('配酒套餐') %}
+                                    {% else %}{% set _ = chinese_specialties.append(specialty) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ chinese_specialties|join(', ') }}
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+from ..utils.image_handler import ImageHandler
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ class AttractionService:
         # Initialize Gemini for attraction data generation
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        # Initialize image handler for attraction images
+        self.image_handler = ImageHandler()
         
         logger.info("Attraction Service initialized")
     
@@ -45,7 +49,10 @@ class AttractionService:
             # Enhance with additional details
             enhanced_attractions = self._enhance_attraction_data(attractions_data, budget)
             
-            return enhanced_attractions
+            # Add images to attractions
+            attractions_with_images = self.image_handler.get_attraction_images(destination, enhanced_attractions)
+            
+            return attractions_with_images
             
         except Exception as e:
             logger.error(f"Error getting attractions: {str(e)}")
@@ -113,7 +120,8 @@ class AttractionService:
                     'photography': 'Yes',
                     'accessibility': 'Mostly accessible',
                     'rating': 4.5,
-                    'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours']
+                    'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
+                    'search_keywords': [f'{destination} historic center', f'{destination} old town', f'{destination} architecture']
                 },
                 {
                     'name': f'{destination} Art Museum',
@@ -127,7 +135,8 @@ class AttractionService:
                     'photography': 'Restricted',
                     'accessibility': 'Fully accessible',
                     'rating': 4.3,
-                    'highlights': ['Art collections', 'Cultural exhibits', 'Educational tours']
+                    'highlights': ['Art collections', 'Cultural exhibits', 'Educational tours'],
+                    'search_keywords': [f'{destination} art museum', f'{destination} gallery', f'{destination} cultural center']
                 },
                 {
                     'name': f'{destination} Central Park',
@@ -141,7 +150,8 @@ class AttractionService:
                     'photography': 'Yes',
                     'accessibility': 'Mostly accessible',
                     'rating': 4.4,
-                    'highlights': ['Nature walks', 'Picnic areas', 'Photography spots']
+                    'highlights': ['Nature walks', 'Picnic areas', 'Photography spots'],
+                    'search_keywords': [f'{destination} park', f'{destination} garden', f'{destination} green space']
                 },
                 {
                     'name': f'{destination} Observatory Deck',
@@ -155,7 +165,8 @@ class AttractionService:
                     'photography': 'Yes',
                     'accessibility': 'Elevator access',
                     'rating': 4.6,
-                    'highlights': ['City views', 'Photography', 'Sunset viewing']
+                    'highlights': ['City views', 'Photography', 'Sunset viewing'],
+                    'search_keywords': [f'{destination} viewpoint', f'{destination} observatory', f'{destination} skyline']
                 },
                 {
                     'name': f'{destination} Local Market',
@@ -169,7 +180,8 @@ class AttractionService:
                     'photography': 'Yes',
                     'accessibility': 'Limited',
                     'rating': 4.2,
-                    'highlights': ['Local culture', 'Food tasting', 'Shopping']
+                    'highlights': ['Local culture', 'Food tasting', 'Shopping'],
+                    'search_keywords': [f'{destination} market', f'{destination} bazaar', f'{destination} local shopping']
                 },
                 {
                     'name': f'{destination} Waterfront Promenade',
@@ -183,7 +195,8 @@ class AttractionService:
                     'photography': 'Yes',
                     'accessibility': 'Fully accessible',
                     'rating': 4.3,
-                    'highlights': ['Water views', 'Walking paths', 'Dining options']
+                    'highlights': ['Water views', 'Walking paths', 'Dining options'],
+                    'search_keywords': [f'{destination} waterfront', f'{destination} promenade', f'{destination} riverside']
                 }
             ]
             

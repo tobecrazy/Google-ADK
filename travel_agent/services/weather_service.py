@@ -47,43 +47,102 @@ class WeatherService:
             Dict containing weather forecast data
         """
         try:
+            logger.info(f"Getting weather forecast for {destination} from {start_date} for {duration} days")
+            
             if not self.api_key:
-                return self._get_mock_weather_data(destination, start_date, duration)
+                logger.warning("No weather API key available, using enhanced mock data")
+                return self._get_enhanced_mock_weather_data(destination, start_date, duration)
             
-            # Convert Chinese city names to Pinyin
-            city_query = self._convert_city_name(destination)
+            # Convert Chinese city names to Pinyin and try multiple variations
+            city_queries = self._get_city_query_variations(destination)
             
-            # Get current weather first to validate city
-            current_weather = self._get_current_weather(city_query)
-            if not current_weather.get('success'):
-                logger.warning(f"Could not get weather for {destination}, using mock data")
-                return self._get_mock_weather_data(destination, start_date, duration)
+            current_weather = None
+            forecast_data = []
             
-            # Get forecast data
-            forecast_data = self._get_forecast_data(city_query, start_date, duration)
+            # Try different city name variations
+            for city_query in city_queries:
+                logger.info(f"Trying weather query for: {city_query}")
+                
+                # Get current weather first to validate city
+                current_weather = self._get_current_weather(city_query)
+                if current_weather.get('success'):
+                    # Get forecast data
+                    forecast_data = self._get_forecast_data(city_query, start_date, duration)
+                    if forecast_data:
+                        break
+                else:
+                    logger.warning(f"Weather query failed for {city_query}")
+            
+            if not current_weather or not current_weather.get('success') or not forecast_data:
+                logger.warning(f"Could not get accurate weather for {destination}, using enhanced mock data")
+                return self._get_enhanced_mock_weather_data(destination, start_date, duration)
             
             return {
                 'success': True,
                 'destination': destination,
                 'current_weather': current_weather.get('data', {}),
                 'forecast': forecast_data,
-                'source': 'OpenWeatherMap'
+                'source': 'OpenWeatherMap',
+                'query_used': city_queries[0] if city_queries else destination
             }
             
         except Exception as e:
             logger.error(f"Error getting weather forecast: {str(e)}")
-            return self._get_mock_weather_data(destination, start_date, duration)
+            return self._get_enhanced_mock_weather_data(destination, start_date, duration)
     
-    def _convert_city_name(self, city: str) -> str:
-        """Convert Chinese city names to Pinyin."""
+    def _get_city_query_variations(self, city: str) -> List[str]:
+        """Get multiple variations of city name for weather queries."""
         try:
+            variations = []
+            
+            # Add original city name
+            variations.append(city)
+            
+            # Handle Chinese city names
             if any('\u4e00' <= char <= '\u9fff' for char in city):
-                pinyin_parts = pinyin(city, style=Style.NORMAL)
-                return "".join([part[0].capitalize() for part in pinyin_parts])
-            return city
+                # Convert to Pinyin
+                try:
+                    pinyin_parts = pinyin(city, style=Style.NORMAL)
+                    pinyin_name = "".join([part[0].capitalize() for part in pinyin_parts])
+                    variations.append(pinyin_name)
+                    
+                    # Also try with spaces
+                    pinyin_spaced = " ".join([part[0].capitalize() for part in pinyin_parts])
+                    variations.append(pinyin_spaced)
+                except:
+                    pass
+                
+                # Common Chinese city mappings
+                city_mappings = {
+                    '西安': ['Xi\'an', 'Xian', 'Xi an'],
+                    '北京': ['Beijing', 'Peking'],
+                    '上海': ['Shanghai'],
+                    '广州': ['Guangzhou', 'Canton'],
+                    '深圳': ['Shenzhen'],
+                    '成都': ['Chengdu'],
+                    '重庆': ['Chongqing'],
+                    '杭州': ['Hangzhou'],
+                    '南京': ['Nanjing', 'Nanking'],
+                    '武汉': ['Wuhan']
+                }
+                
+                if city in city_mappings:
+                    variations.extend(city_mappings[city])
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_variations = []
+            for variation in variations:
+                if variation not in seen:
+                    seen.add(variation)
+                    unique_variations.append(variation)
+            
+            logger.info(f"City query variations for {city}: {unique_variations}")
+            return unique_variations
+            
         except Exception as e:
-            logger.warning(f"Error converting city name: {str(e)}")
-            return city
+            logger.warning(f"Error getting city variations: {str(e)}")
+            return [city]
     
     def _get_current_weather(self, city: str) -> Dict[str, Any]:
         """Get current weather for city validation."""
@@ -280,28 +339,141 @@ class WeatherService:
         
         return hourly_data
     
-    def _get_mock_weather_data(self, destination: str, start_date: str, duration: int) -> Dict[str, Any]:
-        """Get complete mock weather data when API is unavailable."""
+    def _get_enhanced_mock_weather_data(self, destination: str, start_date: str, duration: int) -> Dict[str, Any]:
+        """Get enhanced mock weather data based on destination and season."""
         try:
+            # Parse start date to determine season and location-appropriate weather
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            month = start_dt.month
+            
+            # Determine season-appropriate weather patterns
+            weather_patterns = self._get_seasonal_weather_patterns(destination, month)
+            
             return {
                 'success': True,
                 'destination': destination,
                 'current_weather': {
-                    'temperature': 22,
-                    'condition': 'Partly Cloudy',
-                    'humidity': 65,
-                    'wind_speed': 3.2,
+                    'temperature': weather_patterns['base_temp'],
+                    'condition': weather_patterns['common_conditions'][0],
+                    'humidity': weather_patterns['humidity'],
+                    'wind_speed': weather_patterns['wind_speed'],
                     'pressure': 1013
                 },
-                'forecast': self._generate_mock_forecast(start_date, duration),
-                'source': 'Mock Data (API unavailable)',
-                'note': 'Weather data is simulated. Please check actual weather conditions before travel.'
+                'forecast': self._generate_enhanced_mock_forecast(start_date, duration, weather_patterns),
+                'source': 'Enhanced Mock Data (Seasonal patterns)',
+                'note': 'Weather data is simulated based on seasonal patterns. Please check actual weather conditions before travel.'
             }
             
         except Exception as e:
-            logger.error(f"Error generating mock weather {str(e)}")
+            logger.error(f"Error generating enhanced mock weather: {str(e)}")
             return {
                 'success': False,
                 'error': str(e),
                 'forecast': []
             }
+    
+    def _get_seasonal_weather_patterns(self, destination: str, month: int) -> Dict[str, Any]:
+        """Get seasonal weather patterns for different destinations."""
+        try:
+            # Default patterns
+            patterns = {
+                'base_temp': 22,
+                'temp_range': 8,
+                'humidity': 65,
+                'wind_speed': 3.2,
+                'common_conditions': ['Partly Cloudy', 'Sunny', 'Cloudy'],
+                'precipitation_chance': 0.2
+            }
+            
+            # Adjust for Chinese cities and seasons
+            if any('\u4e00' <= char <= '\u9fff' for char in destination):
+                # Chinese city patterns
+                if '西安' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 2,
+                            'temp_range': 12,
+                            'humidity': 55,
+                            'common_conditions': ['Clear', 'Sunny', 'Partly Cloudy'],
+                            'precipitation_chance': 0.1
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 28,
+                            'temp_range': 10,
+                            'humidity': 70,
+                            'common_conditions': ['Hot', 'Sunny', 'Partly Cloudy'],
+                            'precipitation_chance': 0.3
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 18,
+                            'temp_range': 12,
+                            'humidity': 60,
+                            'common_conditions': ['Mild', 'Sunny', 'Breezy'],
+                            'precipitation_chance': 0.2
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 15,
+                            'temp_range': 10,
+                            'humidity': 58,
+                            'common_conditions': ['Cool', 'Clear', 'Crisp'],
+                            'precipitation_chance': 0.15
+                        })
+            
+            return patterns
+            
+        except Exception as e:
+            logger.error(f"Error getting seasonal patterns: {str(e)}")
+            return {
+                'base_temp': 22,
+                'temp_range': 8,
+                'humidity': 65,
+                'wind_speed': 3.2,
+                'common_conditions': ['Partly Cloudy', 'Sunny', 'Cloudy'],
+                'precipitation_chance': 0.2
+            }
+    
+    def _generate_enhanced_mock_forecast(self, start_date: str, duration: int, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate enhanced mock forecast based on seasonal patterns."""
+        try:
+            forecast_list = []
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            
+            base_temp = patterns['base_temp']
+            temp_range = patterns['temp_range']
+            conditions = patterns['common_conditions']
+            humidity = patterns['humidity']
+            precip_chance = patterns['precipitation_chance']
+            
+            for i in range(duration):
+                current_date = start_dt + timedelta(days=i)
+                
+                # Add some realistic variation
+                temp_variation = (i % 7) - 3  # -3 to +3 degrees variation over week
+                daily_temp = base_temp + temp_variation + ((i % 3) - 1)  # Additional daily variation
+                
+                # Determine condition based on patterns and some randomness
+                condition_index = (i + hash(current_date.strftime('%Y-%m-%d'))) % len(conditions)
+                condition = conditions[condition_index]
+                
+                # Add occasional precipitation
+                if (i % 5 == 0) and (precip_chance > 0.15):
+                    condition = 'Light Rain' if 'Rain' not in condition else condition
+                
+                forecast_list.append({
+                    'date': current_date.strftime('%Y-%m-%d'),
+                    'day_name': current_date.strftime('%A'),
+                    'temperature': max(daily_temp, -10),  # Reasonable minimum
+                    'condition': condition,
+                    'humidity': humidity + ((i % 4) * 5),  # Vary humidity slightly
+                    'precipitation': 0.5 if 'Rain' in condition else 0,
+                    'hourly_details': self._generate_mock_hourly_data(daily_temp, condition)
+                })
+            
+            return forecast_list
+            
+        except Exception as e:
+            logger.error(f"Error generating enhanced mock forecast: {str(e)}")
+            return self._generate_mock_forecast(start_date, duration)

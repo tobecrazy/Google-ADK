@@ -105,6 +105,7 @@ class ReportGeneratorAgent:
             attractions = travel_data.get('attractions', [])
             accommodations = travel_data.get('accommodations', [])
             dining = travel_data.get('dining', [])
+            transportation = travel_data.get('transportation', {})
             local_info = travel_data.get('local_info', {})
             ai_insights = travel_data.get('ai_insights', {})
             
@@ -124,6 +125,11 @@ class ReportGeneratorAgent:
                 # Travel Plans
                 'travel_plans': travel_plans,
                 'plans_count': len(travel_plans),
+                
+                # Transportation
+                'transportation_options': transportation.get('intercity_options', {}),
+                'transportation_recommendation': transportation.get('recommendation', {}),
+                'local_transport': transportation.get('local_transport', {}),
                 
                 # Attractions & Activities
                 'attractions': attractions[:10],  # Top 10 attractions

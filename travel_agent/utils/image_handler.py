@@ -202,6 +202,93 @@ class ImageHandler:
             logger.error(f"Error converting image to base64: {str(e)}")
             return ""
     
+    def get_attraction_images(self, destination: str, attractions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Get images for attractions using free image services.
+        
+        Args:
+            destination: Destination name
+            attractions: List of attraction data
+            
+        Returns:
+            List of attractions with image URLs
+        """
+        try:
+            enhanced_attractions = []
+            
+            for attraction in attractions:
+                try:
+                    attraction_name = attraction.get('name', '')
+                    
+                    # Generate search terms for images
+                    search_terms = [
+                        f"{destination} {attraction_name}",
+                        f"{attraction_name} {destination}",
+                        f"{destination} landmark",
+                        f"{destination} tourist attraction"
+                    ]
+                    
+                    # Try to get image URL from Unsplash
+                    image_url = self._get_unsplash_image(search_terms[0])
+                    
+                    if not image_url:
+                        # Fallback to other search terms
+                        for term in search_terms[1:]:
+                            image_url = self._get_unsplash_image(term)
+                            if image_url:
+                                break
+                    
+                    # Add image URL to attraction data
+                    enhanced_attraction = attraction.copy()
+                    enhanced_attraction['image_url'] = image_url
+                    enhanced_attraction['has_image'] = bool(image_url)
+                    
+                    enhanced_attractions.append(enhanced_attraction)
+                    
+                except Exception as e:
+                    logger.error(f"Error getting image for attraction {attraction.get('name', 'Unknown')}: {str(e)}")
+                    enhanced_attraction = attraction.copy()
+                    enhanced_attraction['image_url'] = None
+                    enhanced_attraction['has_image'] = False
+                    enhanced_attractions.append(enhanced_attraction)
+            
+            return enhanced_attractions
+            
+        except Exception as e:
+            logger.error(f"Error getting attraction images: {str(e)}")
+            return attractions
+    
+    def _get_unsplash_image(self, search_term: str) -> Optional[str]:
+        """
+        Get image URL from Unsplash API.
+        
+        Args:
+            search_term: Search term for image
+            
+        Returns:
+            Image URL or None
+        """
+        try:
+            # Unsplash Source API (no API key required)
+            # This provides random images based on search terms
+            base_url = "https://source.unsplash.com/800x600"
+            search_url = f"{base_url}/?{search_term.replace(' ', '%20')}"
+            
+            # Test if the URL is accessible
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.head(search_url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                return search_url
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting Unsplash image for '{search_term}': {str(e)}")
+            return None
+    
     def process_travel_images(
         self,
         image_urls: List[str],
