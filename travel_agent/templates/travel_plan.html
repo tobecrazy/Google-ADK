@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -370,7 +370,7 @@
         <!-- Header Section -->
         <div class="header">
             <h1>{{ title }}</h1>
-            <div class="subtitle">Your Personalized Travel Guide</div>
+            <div class="subtitle">您的个性化旅行指南</div>
             <div class="meta-info">
                 <div class="meta-item">
                     <span>📍</span>
@@ -382,41 +382,41 @@
                 </div>
                 <div class="meta-item">
                     <span>⏱️</span>
-                    <span>{{ duration }} days</span>
+                    <span>{{ duration }} 天</span>
                 </div>
                 <div class="meta-item">
                     <span>💰</span>
-                    <span>${{ "%.2f"|format(budget) }}</span>
+                    <span>¥{{ "%.2f"|format(budget) }}</span>
                 </div>
             </div>
             <div style="margin-top: 20px; opacity: 0.8; font-size: 0.9em;">
-                Generated on {{ generation_date }}
+                生成时间：{{ generation_date }}
             </div>
         </div>
         
         <div class="content">
             <!-- Destination Overview -->
             <div class="section">
-                <h2>🌍 Destination Overview</h2>
+                <h2>🌍 目的地概览</h2>
                 <p>{{ destination_introduction }}</p>
                 
                 {% if destination_info %}
                 <div class="info-grid mt-20">
                     <div class="info-item">
-                        <strong>Best Time to Visit</strong><br>
-                        {{ destination_info.best_time_to_visit or 'Year-round' }}
+                        <strong>最佳旅行时间</strong><br>
+                        {{ destination_info.best_time_to_visit or '春秋两季' }}
                     </div>
                     <div class="info-item">
-                        <strong>Local Currency</strong><br>
-                        {{ destination_info.local_currency or 'Local Currency' }}
+                        <strong>当地货币</strong><br>
+                        {{ destination_info.local_currency or '人民币' }}
                     </div>
                     <div class="info-item">
-                        <strong>Language</strong><br>
-                        {{ destination_info.language or 'Local Language' }}
+                        <strong>语言</strong><br>
+                        {{ destination_info.language or '中文' }}
                     </div>
                     <div class="info-item">
-                        <strong>Safety Rating</strong><br>
-                        {{ destination_info.safety_rating or 'Generally Safe' }}
+                        <strong>安全等级</strong><br>
+                        {{ destination_info.safety_rating or '总体安全' }}
                     </div>
                 </div>
                 {% endif %}
@@ -424,27 +424,35 @@
 
             <!-- Travel Plans -->
             <div class="section">
-                <h2>📋 Travel Plans ({{ plans_count }} options)</h2>
-                <p class="text-muted mb-20">Choose the plan that best fits your travel style and budget preferences.</p>
+                <h2>📋 旅行计划 ({{ plans_count or 3 }} 个选项)</h2>
+                <p class="text-muted mb-20">选择最适合您旅行风格和预算偏好的计划。</p>
                 
                 {% for plan in travel_plans %}
                 <div class="plan-card">
-                    <h3>{{ plan.plan_type }} Plan - ${{ "%.2f"|format(plan.total_budget) }}</h3>
+                    <h3>{{ plan.plan_type }} 计划 - ¥{{ "%.2f"|format(plan.total_budget) }}</h3>
                     <p class="plan-description">{{ plan.description }}</p>
                     
                     <div class="budget-allocation">
-                        <h4>💰 Budget Allocation:</h4>
+                        <h4>💰 预算分配：</h4>
                         {% for category, details in plan.budget_allocation.items() %}
                         <div class="budget-item">
-                            <span class="budget-category">{{ category.replace('_', ' ').title() }}:</span>
-                            <span class="budget-amount">${{ "%.2f"|format(details.amount) }} ({{ details.percentage }}%)</span>
+                            <span class="budget-category">
+                                {% if category == 'transportation' %}交通费用
+                                {% elif category == 'accommodation' %}住宿费用
+                                {% elif category == 'dining' %}餐饮费用
+                                {% elif category == 'activities' %}活动费用
+                                {% elif category == 'shopping' %}购物费用
+                                {% else %}{{ category.replace('_', ' ').title() }}
+                                {% endif %}:
+                            </span>
+                            <span class="budget-amount">¥{{ "%.2f"|format(details.amount) }} ({{ details.percentage }}%)</span>
                         </div>
                         {% endfor %}
                     </div>
                     
                     {% if plan.tips %}
                     <div class="tips-list">
-                        <h4>💡 Tips for this plan:</h4>
+                        <h4>💡 此计划的建议：</h4>
                         <ul>
                         {% for tip in plan.tips %}
                             <li>{{ tip }}</li>
@@ -459,13 +467,13 @@
             <!-- Weather Forecast -->
             {% if weather_forecast %}
             <div class="section">
-                <h2>🌤️ Weather Forecast</h2>
-                <p class="text-muted mb-20">Plan your activities based on the expected weather conditions.</p>
+                <h2>🌤️ 天气预报</h2>
+                <p class="text-muted mb-20">根据预期天气条件规划您的活动。</p>
                 <div class="weather-forecast">
                     {% for day in weather_forecast[:7] %}
                     <div class="weather-day">
-                        <div class="date">{{ day.date or 'Day ' + loop.index|string }}</div>
-                        <div class="condition">{{ day.condition or 'Partly Cloudy' }}</div>
+                        <div class="date">{{ day.date or '第' + loop.index|string + '天' }}</div>
+                        <div class="condition">{{ day.condition or '多云' }}</div>
                         <div class="temperature">{{ day.temperature or '22°C' }}</div>
                     </div>
                     {% endfor %}
@@ -476,24 +484,24 @@
             <!-- Top Attractions -->
             {% if attractions %}
             <div class="section">
-                <h2>🎯 Top Attractions</h2>
-                <p class="text-muted mb-20">Must-visit places and experiences at your destination.</p>
+                <h2>🎯 热门景点</h2>
+                <p class="text-muted mb-20">目的地必游景点和体验。</p>
                 <div class="grid">
                     {% for attraction in attractions %}
                     <div class="card">
-                        <h4>{{ attraction.name or 'Local Attraction' }}</h4>
-                        <p>{{ attraction.description or 'A must-visit destination with unique experiences and cultural significance.' }}</p>
+                        <h4>{{ attraction.name or '当地景点' }}</h4>
+                        <p>{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}</p>
                         <div class="card-meta">
                             <span class="rating">⭐ {{ attraction.rating or '4.5' }}/5</span>
                             {% if attraction.entrance_fee %}
-                            <span class="price">${{ attraction.entrance_fee }}</span>
+                            <span class="price">¥{{ attraction.entrance_fee }}</span>
                             {% else %}
-                            <span class="price">Free</span>
+                            <span class="price">免费</span>
                             {% endif %}
                         </div>
                         {% if attraction.duration %}
                         <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>Duration:</strong> {{ attraction.duration }}
+                            <strong>游览时长：</strong> {{ attraction.duration }}
                         </div>
                         {% endif %}
                     </div>
@@ -505,23 +513,23 @@
             <!-- Dining Recommendations -->
             {% if dining_options %}
             <div class="section">
-                <h2>🍽️ Dining Recommendations</h2>
-                <p class="text-muted mb-20">Savor the local flavors and culinary experiences.</p>
+                <h2>🍽️ 餐饮推荐</h2>
+                <p class="text-muted mb-20">品尝当地风味和美食体验。</p>
                 <div class="grid">
                     {% for restaurant in dining_options %}
                     <div class="card">
-                        <h4>{{ restaurant.name or 'Local Restaurant' }}</h4>
-                        <p><strong>Cuisine:</strong> {{ restaurant.cuisine or 'Local Cuisine' }}</p>
-                        <p><strong>Price Range:</strong> {{ restaurant.price_range or 'Mid-range' }}</p>
+                        <h4>{{ restaurant.name or '当地餐厅' }}</h4>
+                        <p><strong>菜系：</strong> {{ restaurant.cuisine or '当地菜系' }}</p>
+                        <p><strong>价格区间：</strong> {{ restaurant.price_range or '中等价位' }}</p>
                         <div class="card-meta">
                             <span class="rating">⭐ {{ restaurant.rating or '4.2' }}/5</span>
                             {% if restaurant.estimated_cost %}
-                            <span class="price">${{ "%.0f"|format(restaurant.estimated_cost) }}</span>
+                            <span class="price">¥{{ "%.0f"|format(restaurant.estimated_cost) }}</span>
                             {% endif %}
                         </div>
                         {% if restaurant.specialties %}
                         <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                            <strong>Specialties:</strong> {{ restaurant.specialties|join(', ') }}
+                            <strong>招牌菜：</strong> {{ restaurant.specialties|join(', ') }}
                         </div>
                         {% endif %}
                     </div>
@@ -532,11 +540,11 @@
 
             <!-- Practical Information -->
             <div class="section">
-                <h2>ℹ️ Practical Information</h2>
+                <h2>ℹ️ 实用信息</h2>
                 
                 {% if useful_phrases %}
                 <div class="mb-20">
-                    <h3>🗣️ Useful Phrases</h3>
+                    <h3>🗣️ 常用语句</h3>
                     <div class="info-grid">
                         {% for phrase in useful_phrases %}
                         <div class="info-item">{{ phrase }}</div>
@@ -545,18 +553,23 @@
                 </div>
                 {% endif %}
 
-                {% if emergency_numbers %}
                 <div class="mb-20">
-                    <h3>🚨 Emergency Contacts</h3>
-                    {% for contact in emergency_numbers %}
-                    <div class="emergency-contact">{{ contact }}</div>
-                    {% endfor %}
+                    <h3>🚨 紧急联系电话</h3>
+                    {% if emergency_numbers %}
+                        {% for contact in emergency_numbers %}
+                        <div class="emergency-contact">{{ contact }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="emergency-contact">🚔 报警电话：110</div>
+                        <div class="emergency-contact">🚑 急救电话：120</div>
+                        <div class="emergency-contact">🚒 火警电话：119</div>
+                        <div class="emergency-contact">🚨 旅游投诉：12301</div>
+                    {% endif %}
                 </div>
-                {% endif %}
 
                 {% if cultural_etiquette %}
                 <div class="tips-list">
-                    <h3>🤝 Cultural Etiquette</h3>
+                    <h3>🤝 文化礼仪</h3>
                     <ul>
                     {% for tip in cultural_etiquette %}
                         <li>{{ tip }}</li>
@@ -569,10 +582,21 @@
             <!-- AI Insights -->
             {% if ai_insights %}
             <div class="section">
-                <h2>🤖 AI Travel Insights</h2>
+                <h2>🤖 AI 旅行洞察</h2>
                 <div class="ai-insights">
-                    <h3>Personalized Recommendations</h3>
-                    <div>{{ ai_insights }}</div>
+                    <h3>个性化推荐</h3>
+                    <div style="line-height: 1.8; color: #555;">
+                        {% if ai_insights is string %}
+                            <div style="white-space: pre-wrap; font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;">{{ ai_insights }}</div>
+                        {% else %}
+                            {% for insight in ai_insights %}
+                                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                                    <div style="font-weight: 500; color: #333; margin-bottom: 8px;">{{ insight.title or '推荐' }}</div>
+                                    <div>{{ insight.content or insight }}</div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -580,7 +604,7 @@
             <!-- Additional Sections -->
             {% if did_you_know_facts %}
             <div class="section">
-                <h2>🔍 Did You Know?</h2>
+                <h2>🔍 你知道吗？</h2>
                 <div class="grid">
                     {% for fact in did_you_know_facts %}
                     <div class="card">
@@ -593,7 +617,7 @@
 
             {% if photography_tips %}
             <div class="section">
-                <h2>📸 Photography Tips</h2>
+                <h2>📸 摄影技巧</h2>
                 <div class="tips-list">
                     <ul>
                     {% for tip in photography_tips %}
@@ -607,15 +631,15 @@
         
         <!-- Footer -->
         <div class="footer">
-            <p>Generated by <strong>{{ meta.generated_by }}</strong> v{{ meta.version }}</p>
+            <p>由 <strong>{{ meta.generated_by or 'AI 旅行助手' }}</strong> v{{ meta.version or '1.0' }} 生成</p>
             <p>
                 <span class="emoji">✈️</span>
-                Have an amazing trip!
+                祝您旅途愉快！
                 <span class="emoji">🌟</span>
             </p>
             <p style="font-size: 0.9em; opacity: 0.8; margin-top: 15px;">
-                This travel plan is generated using AI and should be used as a guide. 
-                Please verify all information before making bookings or travel decisions.
+                此旅行计划由AI生成，仅供参考。
+                请在预订或做出旅行决定前核实所有信息。
             </p>
         </div>
     </div>

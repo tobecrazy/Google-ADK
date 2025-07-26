@@ -164,97 +164,110 @@ class ReportGeneratorAgent:
     def _enhance_report_content(self, report_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use AI to enhance report content with additional insights."""
         try:
-            destination = report_data.get('destination', 'Unknown')
+            destination = report_data.get('destination', '未知目的地')
             duration = report_data.get('duration', 7)
+            budget = report_data.get('budget', 5000)
             
-            # Generate additional content sections
+            # Generate additional content sections in Chinese
             prompt = f"""
-            Create engaging content for a travel report to {destination} ({duration} days).
-            Generate:
-            
-            1. A compelling destination introduction (2-3 paragraphs)
-            2. "Did You Know?" interesting facts about the destination (5 facts)
-            3. Photography tips specific to this destination (5 tips)
-            4. Cultural etiquette reminders (5 points)
-            5. Packing suggestions based on the destination and season
-            6. Emergency preparedness tips
-            7. Money-saving hacks specific to this destination
-            
-            Make the content informative, engaging, and practical for travelers.
+            请为{destination}的{duration}天旅行计划（预算{budget}元）创建详细的中文旅行指南内容。
+
+            请生成以下内容，全部使用中文：
+
+            1. 目的地介绍（2-3段，介绍{destination}的历史、文化、特色和魅力）
+            2. 有趣的事实（5个关于{destination}的有趣知识点）
+            3. 摄影技巧（5个针对{destination}的摄影建议）
+            4. 文化礼仪（5个在{destination}需要注意的文化礼仪）
+            5. 打包建议（根据{destination}的气候和季节特点）
+            6. 应急准备（在{destination}旅行的安全建议）
+            7. 省钱技巧（在{destination}旅行的省钱方法）
+            8. 个性化推荐（基于{duration}天行程和{budget}元预算的详细建议，包括隐藏景点、当地体验、美食推荐等）
+
+            请确保所有内容都是中文，实用且具体。
             """
             
             response = self.model.generate_content(prompt)
             
             # Parse and add enhanced content
-            enhanced_content = self._parse_enhanced_content(response.text)
+            enhanced_content = self._parse_enhanced_content(response.text, destination)
             report_data.update(enhanced_content)
             
             return report_data
             
         except Exception as e:
             logger.warning(f"Error enhancing report content: {str(e)}")
-            return report_data
+            # Return default Chinese content
+            return self._get_default_chinese_content(report_data)
     
-    def _parse_enhanced_content(self, ai_response: str) -> Dict[str, Any]:
+    def _parse_enhanced_content(self, ai_response: str, destination: str = '') -> Dict[str, Any]:
         """Parse AI-generated enhanced content."""
         try:
-            # Simple parsing - can be enhanced with more sophisticated NLP
-            enhanced_content = {
-                'destination_introduction': 'Welcome to an amazing travel destination with rich culture, stunning attractions, and unforgettable experiences waiting to be discovered.',
-                'did_you_know_facts': [
-                    'This destination has a rich cultural heritage',
-                    'Local cuisine features unique flavors and ingredients',
-                    'The architecture reflects centuries of history',
-                    'Traditional festivals celebrate local customs',
-                    'Natural landscapes offer diverse experiences'
-                ],
-                'photography_tips': [
-                    'Visit popular spots during golden hour for best lighting',
-                    'Capture local life in markets and streets',
-                    'Include people in your shots for scale and story',
-                    'Try different angles and perspectives',
-                    'Respect local photography customs and restrictions'
-                ],
-                'cultural_etiquette': [
-                    'Respect local customs and traditions',
-                    'Dress appropriately for religious sites',
-                    'Learn basic greetings in the local language',
-                    'Be mindful of local dining etiquette',
-                    'Show respect for local people and their way of life'
-                ],
-                'packing_suggestions': [
-                    'Comfortable walking shoes',
-                    'Weather-appropriate clothing',
-                    'Universal power adapter',
-                    'Basic first aid kit',
-                    'Copies of important documents',
-                    'Local currency and backup payment methods'
-                ],
-                'emergency_preparedness': [
-                    'Save emergency contacts in your phone',
-                    'Keep copies of important documents',
-                    'Know the location of nearest embassy/consulate',
-                    'Have travel insurance information readily available',
-                    'Keep emergency cash in a safe place'
-                ],
-                'money_saving_hacks': [
-                    'Use public transportation when possible',
-                    'Eat at local establishments rather than tourist restaurants',
-                    'Book accommodations in advance for better rates',
-                    'Look for free walking tours and activities',
-                    'Visit attractions during off-peak hours for discounts'
-                ]
-            }
-            
-            # Try to extract more specific content from AI response if possible
-            if ai_response and len(ai_response) > 100:
-                enhanced_content['destination_introduction'] = ai_response[:500] + '...'
+            # If we have a good AI response, use it directly for the insights
+            if ai_response and len(ai_response) > 200:
+                enhanced_content = {
+                    'destination_introduction': f'欢迎来到{destination}！这里是一个充满魅力的旅行目的地，拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。无论您是历史爱好者、美食探索者还是自然风光的追求者，{destination}都能为您提供精彩纷呈的旅行回忆。',
+                    'did_you_know_facts': [
+                        f'{destination}拥有深厚的历史文化底蕴',
+                        f'{destination}的传统美食独具特色',
+                        f'{destination}的建筑风格体现了当地文化',
+                        f'{destination}有许多值得探索的隐藏景点',
+                        f'{destination}的自然风光四季各有特色'
+                    ],
+                    'photography_tips': [
+                        '选择黄金时段拍摄，光线更加柔和迷人',
+                        '捕捉当地人的日常生活瞬间',
+                        '利用建筑和自然景观创造层次感',
+                        '尝试不同的拍摄角度和构图',
+                        '尊重当地的拍摄规定和文化习俗'
+                    ],
+                    'cultural_etiquette': [
+                        '尊重当地的传统习俗和文化',
+                        '在宗教场所保持庄重得体',
+                        '学习基本的当地语言问候语',
+                        '了解当地的用餐礼仪和习惯',
+                        '以友善和尊重的态度与当地人交流'
+                    ],
+                    'ai_insights': ai_response  # Use the full AI response for insights
+                }
+            else:
+                # Fallback to default content
+                enhanced_content = self._get_default_chinese_content({'destination': destination})
             
             return enhanced_content
             
         except Exception as e:
             logger.warning(f"Error parsing enhanced content: {str(e)}")
-            return {}
+            return self._get_default_chinese_content({'destination': destination})
+    
+    def _get_default_chinese_content(self, report_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Get default Chinese content when AI generation fails."""
+        destination = report_data.get('destination', '目的地')
+        
+        return {
+            'destination_introduction': f'欢迎来到{destination}！这里是一个充满魅力的旅行目的地，拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。无论您是历史爱好者、美食探索者还是自然风光的追求者，{destination}都能为您提供精彩纷呈的旅行回忆。在这里，您可以深入了解当地的传统文化，品尝地道的美食，欣赏壮丽的自然景观，感受当地人民的热情好客。',
+            'did_you_know_facts': [
+                f'{destination}拥有深厚的历史文化底蕴，见证了数百年的历史变迁',
+                f'{destination}的传统美食独具特色，融合了多种烹饪技艺',
+                f'{destination}的建筑风格体现了当地独特的文化特色',
+                f'{destination}有许多值得探索的隐藏景点和当地秘境',
+                f'{destination}的自然风光四季各有特色，每个季节都有不同的美景'
+            ],
+            'photography_tips': [
+                '选择黄金时段（日出日落）拍摄，光线更加柔和迷人',
+                '捕捉当地人的日常生活瞬间，展现真实的文化氛围',
+                '利用建筑和自然景观创造层次感和纵深感',
+                '尝试不同的拍摄角度和构图方式，发现独特视角',
+                '尊重当地的拍摄规定和文化习俗，避免敏感区域'
+            ],
+            'cultural_etiquette': [
+                '尊重当地的传统习俗和文化传统',
+                '在宗教场所保持庄重得体的行为举止',
+                '学习基本的当地语言问候语，展现友好态度',
+                '了解当地的用餐礼仪和社交习惯',
+                '以友善和尊重的态度与当地人交流互动'
+            ],
+            'ai_insights': f'基于您的{destination}旅行计划，我们为您精心准备了个性化的旅行建议。建议您提前了解当地的文化背景和历史，这将让您的旅行体验更加丰富。在行程安排上，建议将热门景点和小众景点相结合，既能欣赏到经典美景，又能发现独特的当地体验。美食方面，不要错过当地的特色菜肴和街头小食，这些往往是最能体现当地文化的美味。住宿选择上，可以考虑具有当地特色的民宿或精品酒店，获得更加authentic的体验。交通方面，建议使用当地的公共交通工具，既经济实惠又能更好地融入当地生活。最后，保持开放的心态，与当地人交流，您会发现许多意想不到的精彩体验。'
+        }
     
     def _create_budget_summary(self, travel_plans: List[Dict[str, Any]], total_budget: float) -> Dict[str, Any]:
         """Create a comprehensive budget summary."""

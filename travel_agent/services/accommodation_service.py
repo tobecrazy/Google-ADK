@@ -220,12 +220,17 @@ class AccommodationService:
             
             for accommodation in accommodations:
                 price_per_night = accommodation.get('price_per_night', 0)
+                
+                # Handle None values for price_per_night
+                if price_per_night is None:
+                    price_per_night = 0
+                
                 total_cost = price_per_night * duration
                 
                 enhanced_accommodation = accommodation.copy()
                 enhanced_accommodation.update({
                     'total_cost': total_cost,
-                    'within_budget': price_per_night <= nightly_budget,
+                    'within_budget': price_per_night <= nightly_budget if price_per_night > 0 else False,
                     'value_rating': self._calculate_value_rating(accommodation),
                     'booking_urgency': self._assess_booking_urgency(accommodation),
                     'family_friendly': self._assess_family_friendliness(accommodation),
@@ -254,15 +259,17 @@ class AccommodationService:
     def _calculate_value_rating(self, accommodation: Dict[str, Any]) -> float:
         """Calculate value rating based on price, rating, and amenities."""
         try:
-            rating = accommodation.get('rating', 3.0) or 3.0
+            rating = accommodation.get('rating', 3.0)
             amenities_count = len(accommodation.get('amenities', []))
-            price = accommodation.get('price_per_night', 100) or 100
+            price = accommodation.get('price_per_night', 100)
             
-            # Ensure all values are valid numbers
-            if not isinstance(rating, (int, float)):
+            # Ensure all values are valid numbers and handle None values
+            if rating is None or not isinstance(rating, (int, float)):
                 rating = 3.0
-            if not isinstance(price, (int, float)) or price <= 0:
+            if price is None or not isinstance(price, (int, float)) or price <= 0:
                 price = 100
+            if amenities_count is None:
+                amenities_count = 0
             
             # Simple value calculation (higher rating, more amenities, lower price = better value)
             value_score = (rating * 2 + amenities_count * 0.5) / (price / 50)
@@ -275,6 +282,10 @@ class AccommodationService:
         """Assess how urgently this accommodation should be booked."""
         category = accommodation.get('category', 'mid-range')
         rating = accommodation.get('rating', 3.0)
+        
+        # Handle None values for rating
+        if rating is None:
+            rating = 3.0
         
         if category == 'luxury' or rating > 4.5:
             return 'High - Book immediately'
@@ -306,6 +317,10 @@ class AccommodationService:
         """Assess accessibility features."""
         star_rating = accommodation.get('star_rating', 0)
         category = accommodation.get('category', 'mid-range')
+        
+        # Handle None values for star_rating
+        if star_rating is None:
+            star_rating = 0
         
         if star_rating >= 4 or category == 'luxury':
             return 'Full accessibility features expected'
