@@ -8,6 +8,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from ..utils.budget_calculator import BudgetCalculator
 
 logger = logging.getLogger(__name__)

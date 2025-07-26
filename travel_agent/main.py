@@ -7,10 +7,14 @@ import os
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
 # from google.adk.agents import Agent  # Commented out due to YAML config issue
 from .agents.travel_planner import TravelPlannerAgent
 from .agents.data_collector import DataCollectorAgent
 from .agents.report_generator import ReportGeneratorAgent
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Configure logging
 logging.basicConfig(

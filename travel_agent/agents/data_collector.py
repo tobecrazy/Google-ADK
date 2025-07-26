@@ -11,6 +11,10 @@ from typing import Dict, Any, List, Optional
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from ..services.weather_service import WeatherService
 from ..services.attraction_service import AttractionService
 from ..services.transport_service import TransportService

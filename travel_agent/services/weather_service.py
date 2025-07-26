@@ -9,6 +9,10 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import requests
 from pypinyin import pinyin, Style
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 logger = logging.getLogger(__name__)
 

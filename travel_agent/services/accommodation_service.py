@@ -8,6 +8,10 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 logger = logging.getLogger(__name__)
 
@@ -250,9 +254,15 @@ class AccommodationService:
     def _calculate_value_rating(self, accommodation: Dict[str, Any]) -> float:
         """Calculate value rating based on price, rating, and amenities."""
         try:
-            rating = accommodation.get('rating', 3.0)
+            rating = accommodation.get('rating', 3.0) or 3.0
             amenities_count = len(accommodation.get('amenities', []))
-            price = accommodation.get('price_per_night', 100)
+            price = accommodation.get('price_per_night', 100) or 100
+            
+            # Ensure all values are valid numbers
+            if not isinstance(rating, (int, float)):
+                rating = 3.0
+            if not isinstance(price, (int, float)) or price <= 0:
+                price = 100
             
             # Simple value calculation (higher rating, more amenities, lower price = better value)
             value_score = (rating * 2 + amenities_count * 0.5) / (price / 50)

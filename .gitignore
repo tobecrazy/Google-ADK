@@ -4,3 +4,4 @@ multi_tool_agent/.DS_Store
 multi_tool_agent/.env
 travel_agent/.env
 *.pyc
+*.html

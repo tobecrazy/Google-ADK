@@ -9,6 +9,10 @@ from datetime import datetime
 from typing import Dict, Any, List
 from jinja2 import Environment, FileSystemLoader, Template
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 logger = logging.getLogger(__name__)
 
