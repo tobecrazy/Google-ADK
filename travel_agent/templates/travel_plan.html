@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .header .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1em;
+        }
+
+        /* Content Styles */
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section h2 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            font-weight: 500;
+        }
+
+        .section h3 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        /* Travel Plans Styles */
+        .plan-card {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 25px;
+            margin: 25px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .plan-card h3 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .plan-description {
+            color: #666;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .budget-allocation {
+            margin: 20px 0;
+        }
+
+        .budget-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .budget-item:last-child {
+            border-bottom: none;
+        }
+
+        .budget-category {
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+
+        .budget-amount {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        /* Tips List */
+        .tips-list {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .tips-list h4 {
+            color: #2c5aa0;
+            margin-bottom: 15px;
+        }
+
+        .tips-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .tips-list li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        /* Weather Forecast */
+        .weather-forecast {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .weather-day {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e0e8f0;
+        }
+
+        .weather-day .date {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .weather-day .condition {
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .weather-day .temperature {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        /* Grid Layouts */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 25px 0;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .card h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .card p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+        }
+
+        .rating {
+            color: #ff6b35;
+            font-weight: 600;
+        }
+
+        .price {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        /* Practical Information */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .info-item {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e0e8f0;
+        }
+
+        .emergency-contact {
+            background: #ffe6e6;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+            font-weight: 500;
+        }
+
+        /* AI Insights */
+        .ai-insights {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border-left: 5px solid #28a745;
+            margin: 25px 0;
+        }
+
+        .ai-insights h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        /* Footer */
+        .footer {
+            background: #333;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .footer p {
+            margin-bottom: 10px;
+        }
+
+        .footer .emoji {
+            font-size: 1.5em;
+            margin: 0 5px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .header {
+                padding: 30px 20px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .header .meta-info {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .weather-forecast {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .header {
+                background: #667eea !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+
+            .card:hover {
+                transform: none;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+        }
+
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .text-muted { color: #666; }
+        .mb-20 { margin-bottom: 20px; }
+        .mt-20 { margin-top: 20px; }
+        .highlight { background-color: #fff3cd; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <h1>{{ title }}</h1>
+            <div class="subtitle">Your Personalized Travel Guide</div>
+            <div class="meta-info">
+                <div class="meta-item">
+                    <span>📍</span>
+                    <span>{{ destination }}</span>
+                </div>
+                <div class="meta-item">
+                    <span>📅</span>
+                    <span>{{ start_date }}</span>
+                </div>
+                <div class="meta-item">
+                    <span>⏱️</span>
+                    <span>{{ duration }} days</span>
+                </div>
+                <div class="meta-item">
+                    <span>💰</span>
+                    <span>${{ "%.2f"|format(budget) }}</span>
+                </div>
+            </div>
+            <div style="margin-top: 20px; opacity: 0.8; font-size: 0.9em;">
+                Generated on {{ generation_date }}
+            </div>
+        </div>
+        
+        <div class="content">
+            <!-- Destination Overview -->
+            <div class="section">
+                <h2>🌍 Destination Overview</h2>
+                <p>{{ destination_introduction }}</p>
+                
+                {% if destination_info %}
+                <div class="info-grid mt-20">
+                    <div class="info-item">
+                        <strong>Best Time to Visit</strong><br>
+                        {{ destination_info.best_time_to_visit or 'Year-round' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Local Currency</strong><br>
+                        {{ destination_info.local_currency or 'Local Currency' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Language</strong><br>
+                        {{ destination_info.language or 'Local Language' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Safety Rating</strong><br>
+                        {{ destination_info.safety_rating or 'Generally Safe' }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Travel Plans -->
+            <div class="section">
+                <h2>📋 Travel Plans ({{ plans_count }} options)</h2>
+                <p class="text-muted mb-20">Choose the plan that best fits your travel style and budget preferences.</p>
+                
+                {% for plan in travel_plans %}
+                <div class="plan-card">
+                    <h3>{{ plan.plan_type }} Plan - ${{ "%.2f"|format(plan.total_budget) }}</h3>
+                    <p class="plan-description">{{ plan.description }}</p>
+                    
+                    <div class="budget-allocation">
+                        <h4>💰 Budget Allocation:</h4>
+                        {% for category, details in plan.budget_allocation.items() %}
+                        <div class="budget-item">
+                            <span class="budget-category">{{ category.replace('_', ' ').title() }}:</span>
+                            <span class="budget-amount">${{ "%.2f"|format(details.amount) }} ({{ details.percentage }}%)</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if plan.tips %}
+                    <div class="tips-list">
+                        <h4>💡 Tips for this plan:</h4>
+                        <ul>
+                        {% for tip in plan.tips %}
+                            <li>{{ tip }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Weather Forecast -->
+            {% if weather_forecast %}
+            <div class="section">
+                <h2>🌤️ Weather Forecast</h2>
+                <p class="text-muted mb-20">Plan your activities based on the expected weather conditions.</p>
+                <div class="weather-forecast">
+                    {% for day in weather_forecast[:7] %}
+                    <div class="weather-day">
+                        <div class="date">{{ day.date or 'Day ' + loop.index|string }}</div>
+                        <div class="condition">{{ day.condition or 'Partly Cloudy' }}</div>
+                        <div class="temperature">{{ day.temperature or '22°C' }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Top Attractions -->
+            {% if attractions %}
+            <div class="section">
+                <h2>🎯 Top Attractions</h2>
+                <p class="text-muted mb-20">Must-visit places and experiences at your destination.</p>
+                <div class="grid">
+                    {% for attraction in attractions %}
+                    <div class="card">
+                        <h4>{{ attraction.name or 'Local Attraction' }}</h4>
+                        <p>{{ attraction.description or 'A must-visit destination with unique experiences and cultural significance.' }}</p>
+                        <div class="card-meta">
+                            <span class="rating">⭐ {{ attraction.rating or '4.5' }}/5</span>
+                            {% if attraction.entrance_fee %}
+                            <span class="price">${{ attraction.entrance_fee }}</span>
+                            {% else %}
+                            <span class="price">Free</span>
+                            {% endif %}
+                        </div>
+                        {% if attraction.duration %}
+                        <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                            <strong>Duration:</strong> {{ attraction.duration }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Dining Recommendations -->
+            {% if dining_options %}
+            <div class="section">
+                <h2>🍽️ Dining Recommendations</h2>
+                <p class="text-muted mb-20">Savor the local flavors and culinary experiences.</p>
+                <div class="grid">
+                    {% for restaurant in dining_options %}
+                    <div class="card">
+                        <h4>{{ restaurant.name or 'Local Restaurant' }}</h4>
+                        <p><strong>Cuisine:</strong> {{ restaurant.cuisine or 'Local Cuisine' }}</p>
+                        <p><strong>Price Range:</strong> {{ restaurant.price_range or 'Mid-range' }}</p>
+                        <div class="card-meta">
+                            <span class="rating">⭐ {{ restaurant.rating or '4.2' }}/5</span>
+                            {% if restaurant.estimated_cost %}
+                            <span class="price">${{ "%.0f"|format(restaurant.estimated_cost) }}</span>
+                            {% endif %}
+                        </div>
+                        {% if restaurant.specialties %}
+                        <div style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                            <strong>Specialties:</strong> {{ restaurant.specialties|join(', ') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Practical Information -->
+            <div class="section">
+                <h2>ℹ️ Practical Information</h2>
+                
+                {% if useful_phrases %}
+                <div class="mb-20">
+                    <h3>🗣️ Useful Phrases</h3>
+                    <div class="info-grid">
+                        {% for phrase in useful_phrases %}
+                        <div class="info-item">{{ phrase }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if emergency_numbers %}
+                <div class="mb-20">
+                    <h3>🚨 Emergency Contacts</h3>
+                    {% for contact in emergency_numbers %}
+                    <div class="emergency-contact">{{ contact }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if cultural_etiquette %}
+                <div class="tips-list">
+                    <h3>🤝 Cultural Etiquette</h3>
+                    <ul>
+                    {% for tip in cultural_etiquette %}
+                        <li>{{ tip }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- AI Insights -->
+            {% if ai_insights %}
+            <div class="section">
+                <h2>🤖 AI Travel Insights</h2>
+                <div class="ai-insights">
+                    <h3>Personalized Recommendations</h3>
+                    <div>{{ ai_insights }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Additional Sections -->
+            {% if did_you_know_facts %}
+            <div class="section">
+                <h2>🔍 Did You Know?</h2>
+                <div class="grid">
+                    {% for fact in did_you_know_facts %}
+                    <div class="card">
+                        <p>{{ fact }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if photography_tips %}
+            <div class="section">
+                <h2>📸 Photography Tips</h2>
+                <div class="tips-list">
+                    <ul>
+                    {% for tip in photography_tips %}
+                        <li>{{ tip }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>Generated by <strong>{{ meta.generated_by }}</strong> v{{ meta.version }}</p>
+            <p>
+                <span class="emoji">✈️</span>
+                Have an amazing trip!
+                <span class="emoji">🌟</span>
+            </p>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-top: 15px;">
+                This travel plan is generated using AI and should be used as a guide. 
+                Please verify all information before making bookings or travel decisions.
+            </p>
+        </div>
+    </div>
+
+    <!-- JavaScript for Enhanced Functionality -->
+    <script>
+        // Print functionality
+        function printPlan() {
+            window.print();
+        }
+
+        // Smooth scrolling for internal links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add loading animation for images (if any)
+        document.querySelectorAll('img').forEach(img => {
+            img.addEventListener('load', function() {
+                this.style.opacity = '1';
+            });
+        });
+
+        // Add click-to-copy functionality for emergency numbers
+        document.querySelectorAll('.emergency-contact').forEach(contact => {
+            contact.style.cursor = 'pointer';
+            contact.title = 'Click to copy';
+            contact.addEventListener('click', function() {
+                navigator.clipboard.writeText(this.textContent).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = 'Copied!';
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                    }, 1000);
+                });
+            });
+        });
+
+        // Highlight current section in navigation (if navigation exists)
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('.section');
+            const scrollPos = window.scrollY + 100;
+
+            sections.forEach(section => {
+                if (section.offsetTop <= scrollPos && 
+                    section.offsetTop + section.offsetHeight > scrollPos) {
+                    // Add active class or highlighting logic here
+                }
+            });
+        });
+
+        console.log('Travel Plan loaded successfully! 🎉');
+    </script>
+</body>
+</html>
