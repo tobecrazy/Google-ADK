@@ -863,7 +863,7 @@
                 <div class="ai-insights">
                     <h3>个性化推荐</h3>
                     <div class="ai-insights-content">
-                        {{ ai_insights|replace('**', '<strong>')|replace('**', '</strong>')|replace('*', '<em>')|replace('*', '</em>')|replace('\n\n', '</p><p>')|replace('\n', '<br>')|safe }}
+                        {{ ai_insights|safe }}
                     </div>
                 </div>
             </div>

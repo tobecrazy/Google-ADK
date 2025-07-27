@@ -10,6 +10,7 @@ from typing import Dict, Any, List
 from jinja2 import Environment, FileSystemLoader, Template
 import google.generativeai as genai
 from dotenv import load_dotenv
+from ..utils.markdown_converter import MarkdownConverter
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -210,6 +211,9 @@ class ReportGeneratorAgent:
         try:
             # If we have a good AI response, use it directly for the insights
             if ai_response and len(ai_response) > 200:
+                # Convert Markdown to HTML for AI insights
+                formatted_ai_insights = MarkdownConverter.convert(ai_response)
+                
                 enhanced_content = {
                     'destination_introduction': f'欢迎来到{destination}！这里是一个充满魅力的旅行目的地，拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。无论您是历史爱好者、美食探索者还是自然风光的追求者，{destination}都能为您提供精彩纷呈的旅行回忆。',
                     'did_you_know_facts': [
@@ -233,7 +237,7 @@ class ReportGeneratorAgent:
                         '了解当地的用餐礼仪和习惯',
                         '以友善和尊重的态度与当地人交流'
                     ],
-                    'ai_insights': ai_response  # Use the full AI response for insights
+                    'ai_insights': formatted_ai_insights  # Use formatted HTML for insights
                 }
             else:
                 # Fallback to default content
@@ -326,15 +330,15 @@ class ReportGeneratorAgent:
         """Render using inline HTML template."""
         template_str = """
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        body { font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px 10px 0 0; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px 10px 0 0; text-align: center; }
         .header h1 { margin: 0; font-size: 2.5em; }
         .header .subtitle { font-size: 1.2em; opacity: 0.9; margin-top: 10px; }
         .content { padding: 40px; }
@@ -350,6 +354,8 @@ class ReportGeneratorAgent:
         .weather-forecast { display: flex; gap: 15px; overflow-x: auto; padding: 20px 0; }
         .weather-day { background: #f0f8ff; padding: 15px; border-radius: 8px; min-width: 120px; text-align: center; }
         .footer { background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; }
+        .ai-insights { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #28a745; line-height: 1.8; }
+        .ai-insights h3 { color: #28a745; margin-bottom: 15px; }
         @media (max-width: 768px) { .container { margin: 10px; } .content { padding: 20px; } }
     </style>
 </head>
@@ -357,50 +363,101 @@ class ReportGeneratorAgent:
     <div class="container">
         <div class="header">
             <h1>{{ title }}</h1>
-            <div class="subtitle">
-                📍 {{ destination }} | 📅 {{ start_date }} | ⏱️ {{ duration }} days | 💰 ${{ "%.2f"|format(budget) }}
+            <div class="subtitle">您的个性化旅行指南</div>
+            <div style="margin-top: 15px;">
+                📍 {{ destination }} | 📅 {{ start_date }} | ⏱️ {{ duration }} 天 | 💰 ¥{{ "%.2f"|format(budget) }}
             </div>
             <div style="margin-top: 15px; opacity: 0.8;">
-                Generated on {{ generation_date }}
+                生成时间：{{ generation_date }}
             </div>
         </div>
         
         <div class="content">
             <!-- Destination Overview -->
             <div class="section">
-                <h2>🌍 Destination Overview</h2>
-                <p>{{ destination_introduction }}</p>
+                <h2>🌍 目的地概览</h2>
+                <p>{{ destination_introduction or '欢迎来到这个充满魅力的旅行目的地！这里拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。' }}</p>
                 {% if destination_info %}
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
-                    <div><strong>Best Time to Visit:</strong> {{ destination_info.best_time_to_visit or 'Year-round' }}</div>
-                    <div><strong>Local Currency:</strong> {{ destination_info.local_currency or 'Local Currency' }}</div>
-                    <div><strong>Language:</strong> {{ destination_info.language or 'Local Language' }}</div>
-                    <div><strong>Safety Rating:</strong> {{ destination_info.safety_rating or 'Generally Safe' }}</div>
+                    <div><strong>最佳旅行时间:</strong> 
+                        {% if destination_info.best_time_to_visit == 'Spring and Fall' %}春秋两季
+                        {% elif destination_info.best_time_to_visit == 'Year-round' %}全年适宜
+                        {% else %}{{ destination_info.best_time_to_visit or '春秋两季' }}
+                        {% endif %}
+                    </div>
+                    <div><strong>当地货币:</strong> 
+                        {% if destination_info.local_currency == 'Local Currency' %}人民币
+                        {% else %}{{ destination_info.local_currency or '人民币' }}
+                        {% endif %}
+                    </div>
+                    <div><strong>语言:</strong> 
+                        {% if destination_info.language == 'Local Language' %}中文
+                        {% else %}{{ destination_info.language or '中文' }}
+                        {% endif %}
+                    </div>
+                    <div><strong>安全等级:</strong> 
+                        {% if destination_info.safety_rating == 'Generally Safe' %}总体安全
+                        {% else %}{{ destination_info.safety_rating or '总体安全' }}
+                        {% endif %}
+                    </div>
                 </div>
                 {% endif %}
             </div>
 
             <!-- Travel Plans -->
             <div class="section">
-                <h2>📋 Travel Plans ({{ plans_count }} options)</h2>
+                <h2>📋 旅行计划 ({{ plans_count }} 个选项)</h2>
                 {% for plan in travel_plans %}
                 <div class="plan-card">
-                    <h3>{{ plan.plan_type }} Plan - ${{ "%.2f"|format(plan.total_budget) }}</h3>
-                    <p>{{ plan.description }}</p>
+                    <h3>
+                        {% if plan.plan_type == 'Economic' %}经济型
+                        {% elif plan.plan_type == 'Comfort' %}舒适型
+                        {% elif plan.plan_type == 'Luxury' %}豪华型
+                        {% else %}{{ plan.plan_type }}
+                        {% endif %} 计划 - ¥{{ "%.2f"|format(plan.total_budget) }}
+                    </h3>
+                    <p>
+                        {% if 'Budget-friendly' in (plan.description or '') %}注重性价比的经济型旅行计划，专注于核心体验和必游景点
+                        {% elif 'Comfortable' in (plan.description or '') %}舒适便捷的旅行计划，提供优质体验和贴心服务
+                        {% elif 'Luxury' in (plan.description or '') %}豪华尊享的旅行计划，提供顶级服务和独特体验
+                        {% else %}{{ plan.description or '为您精心定制的旅行计划，确保完美的旅行体验' }}
+                        {% endif %}
+                    </p>
                     
-                    <h4>Budget Allocation:</h4>
+                    <h4>💰 预算分配：</h4>
                     {% for category, details in plan.budget_allocation.items() %}
                     <div class="budget-item">
-                        <span>{{ category.title() }}:</span>
-                        <span>${{ "%.2f"|format(details.amount) }} ({{ details.percentage }}%)</span>
+                        <span>
+                            {% if category == 'transportation' %}交通费用
+                            {% elif category == 'accommodation' %}住宿费用
+                            {% elif category == 'dining' %}餐饮费用
+                            {% elif category == 'activities' %}活动费用
+                            {% elif category == 'shopping' %}购物费用
+                            {% else %}{{ category.replace('_', ' ').title() }}
+                            {% endif %}:
+                        </span>
+                        <span>¥{{ "%.2f"|format(details.amount) }} ({{ details.percentage }}%)</span>
                     </div>
                     {% endfor %}
                     
                     <div class="tips-list" style="margin-top: 20px;">
-                        <h4>💡 Tips for this plan:</h4>
+                        <h4>💡 此计划的建议：</h4>
                         <ul>
                         {% for tip in plan.tips %}
-                            <li>{{ tip }}</li>
+                            <li>
+                                {% if 'Book accommodations in advance' in tip %}提前预订住宿以获得更好的价格
+                                {% elif 'Use public transportation' in tip %}尽可能使用公共交通工具
+                                {% elif 'Try local street food' in tip %}尝试当地街头美食，体验正宗且实惠的餐饮
+                                {% elif 'Look for free walking tours' in tip %}寻找免费的步行游览和活动
+                                {% elif 'Visit attractions during off-peak' in tip %}在非高峰时段参观景点以获得折扣
+                                {% elif 'Book premium accommodations' in tip %}预订设施完善的优质住宿
+                                {% elif 'Consider private transportation' in tip %}考虑私人交通工具以获得便利
+                                {% elif 'Make reservations at recommended' in tip %}在推荐餐厅提前预订
+                                {% elif 'Purchase skip-the-line tickets' in tip %}购买热门景点的免排队门票
+                                {% elif 'Consider guided tours' in tip %}考虑参加导游服务以获得更深入的文化体验
+                                {% else %}{{ tip }}
+                                {% endif %}
+                            </li>
                         {% endfor %}
                         </ul>
                     </div>
@@ -411,13 +468,21 @@ class ReportGeneratorAgent:
             <!-- Weather Forecast -->
             {% if weather_forecast %}
             <div class="section">
-                <h2>🌤️ Weather Forecast</h2>
+                <h2>🌤️ 天气预报</h2>
                 <div class="weather-forecast">
                     {% for day in weather_forecast[:7] %}
                     <div class="weather-day">
-                        <div><strong>{{ day.date or 'Day ' + loop.index|string }}</strong></div>
-                        <div>{{ day.condition or 'Partly Cloudy' }}</div>
-                        <div>{{ day.temperature or '22°C' }}</div>
+                        <div><strong>{{ day.date or '第' + loop.index|string + '天' }}</strong></div>
+                        <div>
+                            {% if day.condition == 'Sunny' %}晴天
+                            {% elif day.condition == 'Cloudy' %}多云
+                            {% elif day.condition == 'Clear' %}晴朗
+                            {% elif day.condition == 'Partly Cloudy' %}局部多云
+                            {% elif day.condition == 'Rainy' %}雨天
+                            {% else %}{{ day.condition or '多云' }}
+                            {% endif %}
+                        </div>
+                        <div>{{ day.temperature or '22' }}°C</div>
                     </div>
                     {% endfor %}
                 </div>
@@ -427,17 +492,41 @@ class ReportGeneratorAgent:
             <!-- Top Attractions -->
             {% if attractions %}
             <div class="section">
-                <h2>🎯 Top Attractions</h2>
+                <h2>🎯 热门景点</h2>
                 <div class="attraction-grid">
                     {% for attraction in attractions %}
                     <div class="attraction-card">
-                        <h4>{{ attraction.name or 'Local Attraction' }}</h4>
-                        <p>{{ attraction.description or 'A must-visit destination with unique experiences.' }}</p>
+                        <h4>
+                            {% if 'Observatory Deck' in (attraction.name or '') %}{{ destination }}观景台
+                            {% elif 'Historic Center' in (attraction.name or '') %}{{ destination }}历史中心
+                            {% elif 'Central Park' in (attraction.name or '') %}{{ destination }}中央公园
+                            {% elif 'Waterfront Promenade' in (attraction.name or '') %}{{ destination }}滨水步道
+                            {% elif 'Art Museum' in (attraction.name or '') %}{{ destination }}艺术博物馆
+                            {% elif 'Local Market' in (attraction.name or '') %}{{ destination }}当地市场
+                            {% else %}{{ attraction.name or '当地景点' }}
+                            {% endif %}
+                        </h4>
+                        <p>
+                            {% if 'Panoramic city views' in (attraction.description or '') %}全景城市观景台，可欣赏到城市最美的全景视野，特别是日出日落时分景色格外迷人。
+                            {% elif 'historic heart of the city' in (attraction.description or '') %}探索城市历史中心，这里有数百年历史的古建筑、迷人的街道和讲述地区故事的文化地标。
+                            {% elif 'Beautiful urban park' in (attraction.description or '') %}美丽的城市公园，是放松休闲、野餐和户外活动的完美场所。设有花园、步行道和娱乐设施。
+                            {% elif 'Scenic waterfront area' in (attraction.description or '') %}风景优美的滨水区域，适合悠闲漫步、用餐和欣赏水景。是当地人和游客都喜爱的热门景点。
+                            {% elif 'World-class art collection' in (attraction.description or '') %}世界级艺术收藏，展示本地和国际艺术家作品，设有轮换展览和常设画廊，展现该地区的文化遗产。
+                            {% elif 'Vibrant local market' in (attraction.description or '') %}充满活力的当地市场，您可以体验正宗文化、品尝当地美食、购买独特纪念品和手工艺品。
+                            {% else %}{{ attraction.description or '必游目的地，拥有独特体验和文化意义。' }}
+                            {% endif %}
+                        </p>
                         <div style="margin-top: 15px;">
-                            <div><strong>Rating:</strong> ⭐ {{ attraction.rating or '4.5' }}/5</div>
-                            <div><strong>Duration:</strong> {{ attraction.duration or '2-3 hours' }}</div>
-                            {% if attraction.price %}
-                            <div><strong>Price:</strong> ${{ attraction.price }}</div>
+                            <div><strong>评分:</strong> ⭐ {{ attraction.rating or '4.5' }}/5</div>
+                            <div><strong>游览时长:</strong> 
+                                {% if 'hours' in (attraction.duration or '') %}{{ attraction.duration|replace('hours', '小时')|replace('hour', '小时')|replace('-', ' - ') }}
+                                {% else %}{{ attraction.duration or '2-3小时' }}
+                                {% endif %}
+                            </div>
+                            {% if attraction.entrance_fee %}
+                            <div><strong>门票:</strong> ¥{{ attraction.entrance_fee }}</div>
+                            {% else %}
+                            <div><strong>门票:</strong> 免费</div>
                             {% endif %}
                         </div>
                     </div>
@@ -449,16 +538,47 @@ class ReportGeneratorAgent:
             <!-- Dining Recommendations -->
             {% if dining_options %}
             <div class="section">
-                <h2>🍽️ Dining Recommendations</h2>
+                <h2>🍽️ 餐饮推荐</h2>
                 <div class="attraction-grid">
                     {% for restaurant in dining_options %}
                     <div class="attraction-card">
-                        <h4>{{ restaurant.name or 'Local Restaurant' }}</h4>
-                        <p><strong>Cuisine:</strong> {{ restaurant.cuisine or 'Local Cuisine' }}</p>
-                        <p><strong>Price Range:</strong> {{ restaurant.price_range or 'Mid-range' }}</p>
-                        <p><strong>Rating:</strong> ⭐ {{ restaurant.rating or '4.2' }}/5</p>
+                        <h4>
+                            {% if 'Local Specialty Restaurant' in (restaurant.name or '') %}当地特色餐厅
+                            {% elif 'Street Food Market' in (restaurant.name or '') %}街头美食市场
+                            {% elif 'Fine Dining Experience' in (restaurant.name or '') %}高端餐饮体验
+                            {% else %}{{ restaurant.name or '当地餐厅' }}
+                            {% endif %}
+                        </h4>
+                        <p><strong>菜系:</strong> 
+                            {% if restaurant.cuisine == 'Local Cuisine' %}当地菜系
+                            {% elif restaurant.cuisine == 'Street Food' %}街头小食
+                            {% elif restaurant.cuisine == 'International' %}国际料理
+                            {% else %}{{ restaurant.cuisine or '当地菜系' }}
+                            {% endif %}
+                        </p>
+                        <p><strong>价格区间:</strong> 
+                            {% if restaurant.price_range == 'Budget' %}经济实惠
+                            {% elif restaurant.price_range == 'Mid-range' %}中等价位
+                            {% elif restaurant.price_range == 'High-end' %}高端消费
+                            {% else %}{{ restaurant.price_range or '中等价位' }}
+                            {% endif %}
+                        </p>
+                        <p><strong>评分:</strong> ⭐ {{ restaurant.rating or '4.2' }}/5</p>
                         {% if restaurant.specialties %}
-                        <p><strong>Specialties:</strong> {{ restaurant.specialties|join(', ') }}</p>
+                        <p><strong>招牌菜:</strong> 
+                            {% set chinese_specialties = [] %}
+                            {% for specialty in restaurant.specialties %}
+                                {% if specialty == 'Local Dish 1' %}{% set _ = chinese_specialties.append('招牌菜1') %}
+                                {% elif specialty == 'Local Dish 2' %}{% set _ = chinese_specialties.append('招牌菜2') %}
+                                {% elif specialty == 'Street Snacks' %}{% set _ = chinese_specialties.append('街头小食') %}
+                                {% elif specialty == 'Local Beverages' %}{% set _ = chinese_specialties.append('当地饮品') %}
+                                {% elif specialty == 'Signature Dishes' %}{% set _ = chinese_specialties.append('招牌菜品') %}
+                                {% elif specialty == 'Wine Pairing' %}{% set _ = chinese_specialties.append('配酒套餐') %}
+                                {% else %}{% set _ = chinese_specialties.append(specialty) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ chinese_specialties|join(', ') }}
+                        </p>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -468,31 +588,37 @@ class ReportGeneratorAgent:
 
             <!-- Practical Information -->
             <div class="section">
-                <h2>ℹ️ Practical Information</h2>
+                <h2>ℹ️ 实用信息</h2>
                 
                 {% if useful_phrases %}
                 <div style="margin-bottom: 30px;">
-                    <h3>🗣️ Useful Phrases</h3>
+                    <h3>🗣️ 常用语句</h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                         {% for phrase in useful_phrases %}
-                        <div style="background: #f0f8ff; padding: 10px; border-radius: 5px;">{{ phrase }}</div>
+                        <div style="background: #f0f8ff; padding: 10px; border-radius: 5px;">
+                            {% if phrase == 'Hello' %}你好
+                            {% elif phrase == 'Thank you' %}谢谢
+                            {% elif phrase == 'Excuse me' %}不好意思
+                            {% elif phrase == 'How much?' %}多少钱？
+                            {% else %}{{ phrase }}
+                            {% endif %}
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
                 {% endif %}
 
-                {% if emergency_numbers %}
                 <div style="margin-bottom: 30px;">
-                    <h3>🚨 Emergency Contacts</h3>
-                    {% for contact in emergency_numbers %}
-                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">{{ contact }}</div>
-                    {% endfor %}
+                    <h3>🚨 紧急联系电话</h3>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚔 报警电话：110</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚑 急救电话：120</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚒 火警电话：119</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚨 旅游投诉：12301</div>
                 </div>
-                {% endif %}
 
                 {% if cultural_etiquette %}
                 <div class="tips-list">
-                    <h3>🤝 Cultural Etiquette</h3>
+                    <h3>🤝 文化礼仪</h3>
                     <ul>
                     {% for tip in cultural_etiquette %}
                         <li>{{ tip }}</li>
@@ -505,17 +631,24 @@ class ReportGeneratorAgent:
             <!-- AI Insights -->
             {% if ai_insights %}
             <div class="section">
-                <h2>🤖 AI Travel Insights</h2>
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #28a745;">
-                    {{ ai_insights }}
+                <h2>🤖 AI 旅行洞察</h2>
+                <div class="ai-insights">
+                    <h3>个性化推荐</h3>
+                    <div class="ai-insights-content">
+                        {{ ai_insights|safe }}
+                    </div>
                 </div>
             </div>
             {% endif %}
         </div>
         
         <div class="footer">
-            <p>Generated by Travel AI Agent | {{ meta.generated_by }} v{{ meta.version }}</p>
-            <p>Have an amazing trip! 🌟</p>
+            <p>由 <strong>AI 旅行助手</strong> v1.0 生成</p>
+            <p>
+                <span style="font-size: 1.5em; margin: 0 5px;">✈️</span>
+                祝您旅途愉快！
+                <span style="font-size: 1.5em; margin: 0 5px;">🌟</span>
+            </p>
         </div>
     </div>
 </body>

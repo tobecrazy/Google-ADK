@@ -95,53 +95,103 @@ class WeatherService:
         try:
             variations = []
             
-            # Add original city name
-            variations.append(city)
-            
-            # Handle Chinese city names
+            # Handle Chinese city names first (prioritize mapped names)
             if any('\u4e00' <= char <= '\u9fff' for char in city):
-                # Convert to Pinyin
-                try:
-                    pinyin_parts = pinyin(city, style=Style.NORMAL)
-                    pinyin_name = "".join([part[0].capitalize() for part in pinyin_parts])
-                    variations.append(pinyin_name)
-                    
-                    # Also try with spaces
-                    pinyin_spaced = " ".join([part[0].capitalize() for part in pinyin_parts])
-                    variations.append(pinyin_spaced)
-                except:
-                    pass
+                logger.info(f"Processing Chinese city name: {city}")
                 
-                # Common Chinese city mappings
+                # Enhanced Chinese city mappings with country codes
                 city_mappings = {
-                    '西安': ['Xi\'an', 'Xian', 'Xi an'],
-                    '北京': ['Beijing', 'Peking'],
-                    '上海': ['Shanghai'],
-                    '广州': ['Guangzhou', 'Canton'],
-                    '深圳': ['Shenzhen'],
-                    '成都': ['Chengdu'],
-                    '重庆': ['Chongqing'],
-                    '杭州': ['Hangzhou'],
-                    '南京': ['Nanjing', 'Nanking'],
-                    '武汉': ['Wuhan']
+                    '西安': ['Xi\'an', 'Xian', 'Xi an', 'Xi\'an,CN', 'Xian,CN'],
+                    '北京': ['Beijing', 'Peking', 'Beijing,CN'],
+                    '上海': ['Shanghai', 'Shanghai,CN'],
+                    '广州': ['Guangzhou', 'Canton', 'Guangzhou,CN', 'Canton,CN'],
+                    '深圳': ['Shenzhen', 'Shenzhen,CN'],
+                    '成都': ['Chengdu', 'Chengdu,CN'],
+                    '重庆': ['Chongqing', 'Chongqing,CN'],
+                    '杭州': ['Hangzhou', 'Hangzhou,CN'],
+                    '南京': ['Nanjing', 'Nanking', 'Nanjing,CN'],
+                    '武汉': ['Wuhan', 'Wuhan,CN'],
+                    '天津': ['Tianjin', 'Tientsin', 'Tianjin,CN'],
+                    '苏州': ['Suzhou', 'Suzhou,CN'],
+                    '青岛': ['Qingdao', 'Tsingtao', 'Qingdao,CN'],
+                    '大连': ['Dalian', 'Dairen', 'Dalian,CN'],
+                    '厦门': ['Xiamen', 'Amoy', 'Xiamen,CN'],
+                    '昆明': ['Kunming', 'Kunming,CN'],
+                    '长沙': ['Changsha', 'Changsha,CN'],
+                    '郑州': ['Zhengzhou', 'Zhengzhou,CN'],
+                    '济南': ['Jinan', 'Tsinan', 'Jinan,CN'],
+                    '哈尔滨': ['Harbin', 'Harbin,CN'],
+                    '沈阳': ['Shenyang', 'Mukden', 'Shenyang,CN'],
+                    '长春': ['Changchun', 'Changchun,CN'],
+                    '石家庄': ['Shijiazhuang', 'Shijiazhuang,CN'],
+                    '太原': ['Taiyuan', 'Taiyuan,CN'],
+                    '呼和浩特': ['Hohhot', 'Huhhot', 'Hohhot,CN'],
+                    '乌鲁木齐': ['Urumqi', 'Urumchi', 'Urumqi,CN'],
+                    '拉萨': ['Lhasa', 'Lasa', 'Lhasa,CN'],
+                    '银川': ['Yinchuan', 'Yinchuan,CN'],
+                    '西宁': ['Xining', 'Sining', 'Xining,CN'],
+                    '兰州': ['Lanzhou', 'Lanchow', 'Lanzhou,CN'],
+                    '海口': ['Haikou', 'Haikou,CN'],
+                    '三亚': ['Sanya', 'Sanya,CN'],
+                    '桂林': ['Guilin', 'Kweilin', 'Guilin,CN'],
+                    '南宁': ['Nanning', 'Nanning,CN'],
+                    '贵阳': ['Guiyang', 'Kweiyang', 'Guiyang,CN'],
+                    '福州': ['Fuzhou', 'Foochow', 'Fuzhou,CN'],
+                    '合肥': ['Hefei', 'Hofei', 'Hefei,CN'],
+                    '南昌': ['Nanchang', 'Nanchang,CN']
                 }
                 
+                # First, try exact mappings
                 if city in city_mappings:
                     variations.extend(city_mappings[city])
+                    logger.info(f"Found exact mapping for {city}: {city_mappings[city]}")
+                
+                # Try Pinyin conversion as backup
+                try:
+                    pinyin_parts = pinyin(city, style=Style.NORMAL)
+                    if pinyin_parts:
+                        # Capitalize each part and join
+                        pinyin_name = "".join([part[0].capitalize() for part in pinyin_parts])
+                        if pinyin_name not in variations:
+                            variations.append(pinyin_name)
+                            variations.append(f"{pinyin_name},CN")
+                        
+                        # Also try with spaces
+                        pinyin_spaced = " ".join([part[0].capitalize() for part in pinyin_parts])
+                        if pinyin_spaced not in variations:
+                            variations.append(pinyin_spaced)
+                            variations.append(f"{pinyin_spaced},CN")
+                        
+                        logger.info(f"Generated Pinyin variations: {pinyin_name}, {pinyin_spaced}")
+                except Exception as pinyin_error:
+                    logger.warning(f"Pinyin conversion failed for {city}: {str(pinyin_error)}")
+                
+                # Add original city name as last resort
+                variations.append(city)
+            else:
+                # For non-Chinese cities, add original name first
+                variations.append(city)
+                
+                # Add country code variations for common international cities
+                if ',' not in city:  # Don't add country code if already present
+                    # Try adding common country codes
+                    common_countries = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'IT', 'ES', 'JP', 'KR']
+                    for country in common_countries:
+                        variations.append(f"{city},{country}")
             
             # Remove duplicates while preserving order
             seen = set()
             unique_variations = []
             for variation in variations:
-                if variation not in seen:
+                if variation and variation not in seen:
                     seen.add(variation)
                     unique_variations.append(variation)
             
-            logger.info(f"City query variations for {city}: {unique_variations}")
+            logger.info(f"Final city query variations for '{city}': {unique_variations}")
             return unique_variations
             
         except Exception as e:
-            logger.warning(f"Error getting city variations: {str(e)}")
+            logger.error(f"Error getting city variations for '{city}': {str(e)}")
             return [city]
     
     def _get_current_weather(self, city: str) -> Dict[str, Any]:
@@ -428,14 +478,51 @@ class WeatherService:
             
             # Adjust for Chinese cities and seasons
             if any('\u4e00' <= char <= '\u9fff' for char in destination):
-                # Chinese city patterns
-                if '西安' in destination:
+                logger.info(f"Applying seasonal patterns for Chinese city: {destination}, month: {month}")
+                
+                # Guangzhou (广州) - Subtropical climate
+                if '广州' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 15,
+                            'temp_range': 8,
+                            'humidity': 70,
+                            'common_conditions': ['Mild', 'Partly Cloudy', 'Overcast'],
+                            'precipitation_chance': 0.15
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 30,
+                            'temp_range': 6,
+                            'humidity': 85,
+                            'common_conditions': ['Hot and Humid', 'Thunderstorms', 'Partly Cloudy'],
+                            'precipitation_chance': 0.6
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 24,
+                            'temp_range': 8,
+                            'humidity': 80,
+                            'common_conditions': ['Warm', 'Rainy', 'Humid'],
+                            'precipitation_chance': 0.4
+                        })
+                    else:  # Fall (9, 10, 11)
+                        patterns.update({
+                            'base_temp': 26,
+                            'temp_range': 6,
+                            'humidity': 75,
+                            'common_conditions': ['Pleasant', 'Sunny', 'Comfortable'],
+                            'precipitation_chance': 0.2
+                        })
+                
+                # Xi'an (西安) - Continental climate
+                elif '西安' in destination:
                     if month in [12, 1, 2]:  # Winter
                         patterns.update({
                             'base_temp': 2,
                             'temp_range': 12,
                             'humidity': 55,
-                            'common_conditions': ['Clear', 'Sunny', 'Partly Cloudy'],
+                            'common_conditions': ['Cold', 'Clear', 'Dry'],
                             'precipitation_chance': 0.1
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -443,7 +530,7 @@ class WeatherService:
                             'base_temp': 28,
                             'temp_range': 10,
                             'humidity': 70,
-                            'common_conditions': ['Hot', 'Sunny', 'Partly Cloudy'],
+                            'common_conditions': ['Hot', 'Sunny', 'Occasional Rain'],
                             'precipitation_chance': 0.3
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -451,7 +538,7 @@ class WeatherService:
                             'base_temp': 18,
                             'temp_range': 12,
                             'humidity': 60,
-                            'common_conditions': ['Mild', 'Sunny', 'Breezy'],
+                            'common_conditions': ['Mild', 'Windy', 'Variable'],
                             'precipitation_chance': 0.2
                         })
                     else:  # Fall
@@ -459,10 +546,187 @@ class WeatherService:
                             'base_temp': 15,
                             'temp_range': 10,
                             'humidity': 58,
-                            'common_conditions': ['Cool', 'Clear', 'Crisp'],
+                            'common_conditions': ['Cool', 'Clear', 'Comfortable'],
                             'precipitation_chance': 0.15
                         })
+                
+                # Beijing (北京) - Continental climate
+                elif '北京' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': -2,
+                            'temp_range': 15,
+                            'humidity': 45,
+                            'common_conditions': ['Cold', 'Dry', 'Clear'],
+                            'precipitation_chance': 0.05
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 27,
+                            'temp_range': 8,
+                            'humidity': 75,
+                            'common_conditions': ['Hot', 'Humid', 'Thunderstorms'],
+                            'precipitation_chance': 0.4
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 16,
+                            'temp_range': 12,
+                            'humidity': 55,
+                            'common_conditions': ['Mild', 'Windy', 'Dusty'],
+                            'precipitation_chance': 0.15
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 14,
+                            'temp_range': 10,
+                            'humidity': 60,
+                            'common_conditions': ['Pleasant', 'Clear', 'Crisp'],
+                            'precipitation_chance': 0.1
+                        })
+                
+                # Shanghai (上海) - Subtropical climate
+                elif '上海' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 6,
+                            'temp_range': 8,
+                            'humidity': 70,
+                            'common_conditions': ['Cool', 'Damp', 'Overcast'],
+                            'precipitation_chance': 0.2
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 29,
+                            'temp_range': 6,
+                            'humidity': 85,
+                            'common_conditions': ['Hot', 'Humid', 'Rainy'],
+                            'precipitation_chance': 0.5
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 19,
+                            'temp_range': 10,
+                            'humidity': 75,
+                            'common_conditions': ['Mild', 'Rainy', 'Variable'],
+                            'precipitation_chance': 0.35
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 21,
+                            'temp_range': 8,
+                            'humidity': 70,
+                            'common_conditions': ['Pleasant', 'Comfortable', 'Sunny'],
+                            'precipitation_chance': 0.2
+                        })
+                
+                # Shenzhen (深圳) - Similar to Guangzhou
+                elif '深圳' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 17,
+                            'temp_range': 6,
+                            'humidity': 65,
+                            'common_conditions': ['Mild', 'Pleasant', 'Dry'],
+                            'precipitation_chance': 0.1
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 31,
+                            'temp_range': 5,
+                            'humidity': 85,
+                            'common_conditions': ['Hot', 'Humid', 'Thunderstorms'],
+                            'precipitation_chance': 0.65
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 25,
+                            'temp_range': 7,
+                            'humidity': 80,
+                            'common_conditions': ['Warm', 'Humid', 'Rainy'],
+                            'precipitation_chance': 0.4
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 27,
+                            'temp_range': 5,
+                            'humidity': 70,
+                            'common_conditions': ['Warm', 'Comfortable', 'Pleasant'],
+                            'precipitation_chance': 0.15
+                        })
+                
+                # Chengdu (成都) - Basin climate
+                elif '成都' in destination:
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 8,
+                            'temp_range': 8,
+                            'humidity': 80,
+                            'common_conditions': ['Cool', 'Foggy', 'Overcast'],
+                            'precipitation_chance': 0.15
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 26,
+                            'temp_range': 6,
+                            'humidity': 85,
+                            'common_conditions': ['Warm', 'Humid', 'Rainy'],
+                            'precipitation_chance': 0.6
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 19,
+                            'temp_range': 8,
+                            'humidity': 75,
+                            'common_conditions': ['Mild', 'Rainy', 'Humid'],
+                            'precipitation_chance': 0.4
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 18,
+                            'temp_range': 8,
+                            'humidity': 80,
+                            'common_conditions': ['Pleasant', 'Overcast', 'Mild'],
+                            'precipitation_chance': 0.3
+                        })
+                
+                # Default for other Chinese cities
+                else:
+                    logger.info(f"Using default Chinese city patterns for {destination}")
+                    if month in [12, 1, 2]:  # Winter
+                        patterns.update({
+                            'base_temp': 5,
+                            'temp_range': 12,
+                            'humidity': 60,
+                            'common_conditions': ['Cold', 'Clear', 'Dry'],
+                            'precipitation_chance': 0.1
+                        })
+                    elif month in [6, 7, 8]:  # Summer
+                        patterns.update({
+                            'base_temp': 28,
+                            'temp_range': 8,
+                            'humidity': 75,
+                            'common_conditions': ['Hot', 'Humid', 'Rainy'],
+                            'precipitation_chance': 0.4
+                        })
+                    elif month in [3, 4, 5]:  # Spring
+                        patterns.update({
+                            'base_temp': 18,
+                            'temp_range': 10,
+                            'humidity': 65,
+                            'common_conditions': ['Mild', 'Variable', 'Pleasant'],
+                            'precipitation_chance': 0.25
+                        })
+                    else:  # Fall
+                        patterns.update({
+                            'base_temp': 16,
+                            'temp_range': 10,
+                            'humidity': 65,
+                            'common_conditions': ['Cool', 'Pleasant', 'Clear'],
+                            'precipitation_chance': 0.2
+                        })
             
+            logger.info(f"Applied weather patterns for {destination}: {patterns}")
             return patterns
             
         except Exception as e:
