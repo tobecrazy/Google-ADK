@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from .agents.travel_planner import TravelPlannerAgent
 from .agents.data_collector import DataCollectorAgent
 from .agents.report_generator import ReportGeneratorAgent
+from .services.weather_service import WeatherService
 from .utils.date_parser import parse_date, get_current_date_info
 
 # Load environment variables from .env file
@@ -27,16 +28,22 @@ logger = logging.getLogger(__name__)
 class TravelAgent:
     """Main Travel AI Agent class that orchestrates the travel planning process."""
     
-    def __init__(self):
+    def __init__(self, use_mcp_tool=None):
         """Initialize the Travel Agent with all sub-agents."""
         self.data_collector = DataCollectorAgent()
         self.travel_planner = TravelPlannerAgent()
         self.report_generator = ReportGeneratorAgent()
         
+        # Initialize weather service with MCP tool support
+        self.weather_service = WeatherService(use_mcp_tool=use_mcp_tool)
+        
+        # Store MCP tool function for use in data collection
+        self.use_mcp_tool = use_mcp_tool
+        
         # Ensure output directory exists
         os.makedirs("output", exist_ok=True)
         
-        logger.info("Travel AI Agent initialized successfully")
+        logger.info("Travel AI Agent initialized successfully with MCP integration")
     
     def plan_travel(
         self,

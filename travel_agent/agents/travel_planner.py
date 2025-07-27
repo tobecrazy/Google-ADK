@@ -355,23 +355,24 @@ class TravelPlannerAgent:
             weather_data = travel_data.get('weather_data', {})
             
             prompt = f"""
-            Create a detailed day-by-day itinerary for {destination} with the following considerations:
+            请为{destination}创建详细的逐日行程安排，考虑以下因素：
             
-            Plan Type: {plan_type}
-            Budget: {budget}
-            Available Attractions: {len(attractions)} attractions
+            计划类型：{plan_type}
+            预算：{budget}元
+            可选景点：{len(attractions)}个景点
             
-            For each day, provide:
-            1. Morning activities (9:00-12:00)
-            2. Afternoon activities (13:00-17:00)
-            3. Evening activities (18:00-21:00)
-            4. Recommended restaurants for each meal
-            5. Transportation between locations
-            6. Estimated costs and time requirements
-            7. Weather considerations
-            8. Alternative indoor activities if needed
+            请为每一天提供：
+            1. 上午活动 (9:00-12:00)
+            2. 下午活动 (13:00-17:00)  
+            3. 晚上活动 (18:00-21:00)
+            4. 每餐推荐餐厅
+            5. 地点间交通方式
+            6. 预估费用和时间要求
+            7. 天气考虑因素
+            8. 室内活动备选方案
             
-            Create a 7-day itinerary that balances must-see attractions with local experiences.
+            请创建一个7天的行程安排，平衡必游景点和当地体验。
+            请用中文回复所有内容。
             """
             
             response = self.model.generate_content(prompt)
@@ -395,41 +396,41 @@ class TravelPlannerAgent:
             for day_num in range(1, 8):  # 7 days
                 day_plan = {
                     'day': day_num,
-                    'date': f"Day {day_num}",
-                    'theme': f"Explore & Discover - Day {day_num}",
+                    'date': f"第{day_num}天",
+                    'theme': f"探索发现 - 第{day_num}天",
                     'activities': {
                         'morning': {
                             'time': '09:00-12:00',
-                            'activity': f'Morning Attraction Visit - Day {day_num}',
-                            'location': 'Main Tourist Area',
+                            'activity': f'上午景点游览 - 第{day_num}天',
+                            'location': '主要旅游区',
                             'estimated_cost': 50 if plan_type == 'comfort' else 30,
-                            'duration': '3 hours',
-                            'notes': 'Start early to avoid crowds'
+                            'duration': '3小时',
+                            'notes': '早起避开人群'
                         },
                         'afternoon': {
                             'time': '13:00-17:00',
-                            'activity': f'Afternoon Cultural Experience - Day {day_num}',
-                            'location': 'Cultural District',
+                            'activity': f'下午文化体验 - 第{day_num}天',
+                            'location': '文化区',
                             'estimated_cost': 40 if plan_type == 'comfort' else 25,
-                            'duration': '4 hours',
-                            'notes': 'Include lunch break'
+                            'duration': '4小时',
+                            'notes': '包含午餐时间'
                         },
                         'evening': {
                             'time': '18:00-21:00',
-                            'activity': f'Evening Dining & Leisure - Day {day_num}',
-                            'location': 'Entertainment District',
+                            'activity': f'晚上用餐休闲 - 第{day_num}天',
+                            'location': '娱乐区',
                             'estimated_cost': 60 if plan_type == 'comfort' else 35,
-                            'duration': '3 hours',
-                            'notes': 'Enjoy local nightlife'
+                            'duration': '3小时',
+                            'notes': '享受当地夜生活'
                         }
                     },
                     'meals': {
-                        'breakfast': {'location': 'Hotel/Local Cafe', 'cost': 15},
-                        'lunch': {'location': 'Local Restaurant', 'cost': 25},
-                        'dinner': {'location': 'Recommended Restaurant', 'cost': 45}
+                        'breakfast': {'location': '酒店/当地咖啡厅', 'cost': 15},
+                        'lunch': {'location': '当地餐厅', 'cost': 25},
+                        'dinner': {'location': '推荐餐厅', 'cost': 45}
                     },
                     'transportation': {
-                        'method': 'Public Transit' if plan_type == 'economic' else 'Mixed',
+                        'method': '公共交通' if plan_type == 'economic' else '混合交通',
                         'estimated_cost': 10 if plan_type == 'economic' else 20
                     },
                     'total_daily_cost': 200 if plan_type == 'comfort' else 140
@@ -448,23 +449,23 @@ class TravelPlannerAgent:
         return [
             {
                 'day': 1,
-                'date': 'Day 1',
-                'theme': 'Arrival & City Overview',
+                'date': '第1天',
+                'theme': '抵达与城市概览',
                 'activities': {
                     'morning': {
-                        'activity': 'Arrival and Check-in',
+                        'activity': '抵达和入住',
                         'estimated_cost': 0,
-                        'duration': '2 hours'
+                        'duration': '2小时'
                     },
                     'afternoon': {
-                        'activity': 'City Walking Tour',
+                        'activity': '城市步行游览',
                         'estimated_cost': 30,
-                        'duration': '3 hours'
+                        'duration': '3小时'
                     },
                     'evening': {
-                        'activity': 'Welcome Dinner',
+                        'activity': '欢迎晚餐',
                         'estimated_cost': 50,
-                        'duration': '2 hours'
+                        'duration': '2小时'
                     }
                 },
                 'total_daily_cost': 80
@@ -546,16 +547,16 @@ class TravelPlannerAgent:
                 },
                 'recommended_restaurants': dining_options[:5],  # Top 5 recommendations
                 'food_experiences': [
-                    'Try local street food',
-                    'Visit traditional markets',
-                    'Experience fine dining (if budget allows)',
-                    'Join a food tour',
-                    'Cook with locals (if available)'
+                    '尝试当地街头美食',
+                    '参观传统市场',
+                    '体验精致餐饮（预算允许的情况下）',
+                    '参加美食之旅',
+                    '与当地人一起烹饪（如有机会）'
                 ],
                 'dietary_considerations': [
-                    'Vegetarian options available',
-                    'Halal restaurants identified',
-                    'Allergy-friendly establishments noted'
+                    '提供素食选择',
+                    '已识别清真餐厅',
+                    '标注过敏友好餐厅'
                 ]
             }
             
@@ -712,18 +713,18 @@ class TravelPlannerAgent:
         features = []
         
         if preferences.get('photography'):
-            features.append('Photography spots and golden hour recommendations')
+            features.append('摄影景点和黄金时段推荐')
         
         if preferences.get('adventure'):
-            features.append('Adventure activities and outdoor experiences')
+            features.append('冒险活动和户外体验')
         
         if preferences.get('culture'):
-            features.append('Deep cultural immersion experiences')
+            features.append('深度文化沉浸体验')
         
         if preferences.get('relaxation'):
-            features.append('Spa and wellness activities')
+            features.append('水疗和健康活动')
         
         if preferences.get('nightlife'):
-            features.append('Nightlife and entertainment recommendations')
+            features.append('夜生活和娱乐推荐')
         
-        return features if features else ['Balanced mix of activities and experiences']
+        return features if features else ['平衡的活动和体验组合']

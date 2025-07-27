@@ -4,6 +4,7 @@ Provides attraction and points of interest data
 """
 
 import os
+import re
 import logging
 from typing import Dict, Any, List
 import google.generativeai as genai
@@ -55,9 +56,22 @@ class AttractionService:
             final_attractions = self._enhance_attraction_data(enhanced_attractions, budget)
             
             # Add images to attractions
-            attractions_with_images = self.image_handler.get_attraction_images(destination, final_attractions)
-            
-            return attractions_with_images
+            try:
+                logger.info(f"Adding images to {len(final_attractions)} attractions for {destination}")
+                attractions_with_images = self.image_handler.get_attraction_images(destination, final_attractions)
+                
+                # Log image success rate
+                with_images = sum(1 for attr in attractions_with_images if attr.get('has_image', False))
+                logger.info(f"Successfully added images to {with_images}/{len(attractions_with_images)} attractions")
+                
+                return attractions_with_images
+            except Exception as e:
+                logger.warning(f"Failed to add images to attractions: {str(e)}")
+                # Return attractions without images if image processing fails
+                for attraction in final_attractions:
+                    attraction['image_url'] = None
+                    attraction['has_image'] = False
+                return final_attractions
             
         except Exception as e:
             logger.error(f"Error getting attractions: {str(e)}")
@@ -213,7 +227,11 @@ class AttractionService:
             for pattern in name_patterns:
                 match = re.search(pattern, section, re.IGNORECASE | re.MULTILINE)
                 if match:
-                    name = match.group(-1).strip()  # Get last group
+                    # Safely get the last available group
+                    try:
+                        name = match.group(-1).strip() if match.groups() else match.group(0).strip()
+                    except IndexError:
+                        name = match.group(0).strip()  # Fallback to entire match
                     name = re.sub(r'^\d+\.\s*', '', name)  # Remove numbering
                     if len(name) > 5 and len(name) < 100:  # Reasonable name length
                         break
@@ -233,7 +251,10 @@ class AttractionService:
             for pattern in desc_patterns:
                 match = re.search(pattern, section, re.IGNORECASE | re.DOTALL)
                 if match:
-                    description = match.group(1).strip()
+                    try:
+                        description = match.group(1).strip() if match.groups() else match.group(0).strip()
+                    except IndexError:
+                        description = match.group(0).strip()
                     if len(description) > 20:
                         break
             
@@ -260,7 +281,11 @@ class AttractionService:
             for field, pattern in field_patterns.items():
                 match = re.search(pattern, section, re.IGNORECASE)
                 if match:
-                    value = match.group(1).strip()
+                    try:
+                        value = match.group(1).strip() if match.groups() else match.group(0).strip()
+                    except IndexError:
+                        value = match.group(0).strip()
+                    
                     if field == 'entrance_fee':
                         # Extract numeric value from fee
                         fee_match = re.search(r'(\d+(?:\.\d+)?)', value)
@@ -280,98 +305,75 @@ class AttractionService:
     
     def _get_default_attractions(self, destination: str) -> List[Dict[str, Any]]:
         """Get default attractions when AI parsing fails or needs supplementing."""
-        return [
-            {
-                'name': f'{destination} Historic Center',
-                'description': 'Explore the historic heart of the city with centuries-old architecture, charming streets, and cultural landmarks that tell the story of the region.',
-                'category': 'Historical',
-                'duration': '3-4 hours',
-                'entrance_fee': 0,
-                'best_time': 'Morning or late afternoon',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Yes',
-                'accessibility': 'Mostly accessible',
-                'rating': 4.5,
-                'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
-                'search_keywords': [f'{destination} historic center', f'{destination} old town', f'{destination} architecture']
-            },
-            {
-                'name': f'{destination} Art Museum',
-                'description': 'World-class art collection featuring local and international artists, with rotating exhibitions and permanent galleries showcasing the region\'s cultural heritage.',
-                'category': 'Cultural',
-                'duration': '2-3 hours',
-                'entrance_fee': 15,
-                'best_time': 'Any time',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Restricted',
-                'accessibility': 'Fully accessible',
-                'rating': 4.3,
-                'highlights': ['Art collections', 'Cultural exhibits', 'Educational tours'],
-                'search_keywords': [f'{destination} art museum', f'{destination} gallery', f'{destination} cultural center']
-            },
-            {
-                'name': f'{destination} Central Park',
-                'description': 'Beautiful urban park perfect for relaxation, picnics, and outdoor activities. Features gardens, walking paths, and recreational facilities.',
-                'category': 'Natural',
-                'duration': '2-4 hours',
-                'entrance_fee': 0,
-                'best_time': 'Morning or evening',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Yes',
-                'accessibility': 'Mostly accessible',
-                'rating': 4.4,
-                'highlights': ['Nature walks', 'Picnic areas', 'Photography spots'],
-                'search_keywords': [f'{destination} park', f'{destination} garden', f'{destination} green space']
-            },
-            {
-                'name': f'{destination} Observatory Deck',
-                'description': 'Panoramic city views from the highest accessible point, offering breathtaking vistas especially during sunrise and sunset.',
-                'category': 'Entertainment',
-                'duration': '1-2 hours',
-                'entrance_fee': 25,
-                'best_time': 'Sunset or clear days',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Yes',
-                'accessibility': 'Elevator access',
-                'rating': 4.6,
-                'highlights': ['City views', 'Photography', 'Sunset viewing'],
-                'search_keywords': [f'{destination} viewpoint', f'{destination} observatory', f'{destination} skyline']
-            },
-            {
-                'name': f'{destination} Local Market',
-                'description': 'Vibrant local market where you can experience authentic culture, taste local foods, and shop for unique souvenirs and crafts.',
-                'category': 'Cultural',
-                'duration': '2-3 hours',
-                'entrance_fee': 0,
-                'best_time': 'Morning',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Yes',
-                'accessibility': 'Limited',
-                'rating': 4.2,
-                'highlights': ['Local culture', 'Food tasting', 'Shopping'],
-                'search_keywords': [f'{destination} market', f'{destination} bazaar', f'{destination} local shopping']
-            },
-            {
-                'name': f'{destination} Waterfront Promenade',
-                'description': 'Scenic waterfront area perfect for leisurely walks, dining, and enjoying water views. Popular spot for both locals and tourists.',
-                'category': 'Natural',
-                'duration': '1-3 hours',
-                'entrance_fee': 0,
-                'best_time': 'Evening',
-                'difficulty': 'Easy',
-                'age_suitability': 'All ages',
-                'photography': 'Yes',
-                'accessibility': 'Fully accessible',
-                'rating': 4.3,
-                'highlights': ['Water views', 'Walking paths', 'Dining options'],
-                'search_keywords': [f'{destination} waterfront', f'{destination} promenade', f'{destination} riverside']
-            }
-        ]
+        try:
+            # Try to generate better default attractions using AI
+            fallback_prompt = f"""
+            Generate 6 realistic attractions for {destination}. Use actual place names if known, otherwise create plausible names.
+            For each attraction, provide: Name, Description (1-2 sentences), Category, Duration, Entrance Fee (number), Rating (1-5).
+            Format as simple list with clear separation between attractions.
+            """
+            
+            try:
+                response = self.model.generate_content(fallback_prompt)
+                if response and response.text:
+                    # Try to parse the fallback response
+                    fallback_attractions = self._parse_attractions_response(response.text, destination)
+                    if len(fallback_attractions) >= 3:
+                        return fallback_attractions[:6]  # Return up to 6 attractions
+            except Exception as e:
+                logger.warning(f"Failed to generate AI fallback attractions: {str(e)}")
+            
+            # If AI fails, return minimal hardcoded fallbacks
+            return [
+                {
+                    'name': f'Historic District of {destination}',
+                    'description': f'Explore the historic heart of {destination} with its unique architecture and cultural heritage.',
+                    'category': 'Historical',
+                    'duration': '3-4 hours',
+                    'entrance_fee': 0,
+                    'best_time': 'Morning or late afternoon',
+                    'difficulty': 'Easy',
+                    'age_suitability': 'All ages',
+                    'photography': 'Yes',
+                    'accessibility': 'Mostly accessible',
+                    'rating': 4.5,
+                    'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
+                    'search_keywords': [f'{destination} historic', f'{destination} old town', f'{destination} heritage']
+                },
+                {
+                    'name': f'Cultural Museum of {destination}',
+                    'description': f'Local museum showcasing the art, history, and cultural heritage of {destination}.',
+                    'category': 'Cultural',
+                    'duration': '2-3 hours',
+                    'entrance_fee': 12,
+                    'best_time': 'Any time',
+                    'difficulty': 'Easy',
+                    'age_suitability': 'All ages',
+                    'photography': 'Restricted',
+                    'accessibility': 'Fully accessible',
+                    'rating': 4.2,
+                    'highlights': ['Local art', 'Cultural exhibits', 'Historical artifacts'],
+                    'search_keywords': [f'{destination} museum', f'{destination} culture', f'{destination} art']
+                },
+                {
+                    'name': f'Main Square of {destination}',
+                    'description': f'Central gathering place in {destination} with local atmosphere and nearby shops and cafes.',
+                    'category': 'Cultural',
+                    'duration': '1-2 hours',
+                    'entrance_fee': 0,
+                    'best_time': 'Evening',
+                    'difficulty': 'Easy',
+                    'age_suitability': 'All ages',
+                    'photography': 'Yes',
+                    'accessibility': 'Fully accessible',
+                    'rating': 4.3,
+                    'highlights': ['Local atmosphere', 'People watching', 'Nearby dining'],
+                    'search_keywords': [f'{destination} square', f'{destination} plaza', f'{destination} center']
+                }
+            ]
+        except Exception as e:
+            logger.error(f"Error in _get_default_attractions: {str(e)}")
+            return []
     
     def _validate_and_complete_attraction(self, attraction: Dict[str, Any], destination: str) -> Dict[str, Any]:
         """Validate and complete attraction data with defaults for missing fields."""
@@ -403,13 +405,19 @@ class AttractionService:
                 # Try to extract number from string
                 import re
                 fee_match = re.search(r'(\d+(?:\.\d+)?)', str(attraction['entrance_fee']))
-                attraction['entrance_fee'] = float(fee_match.group(1)) if fee_match else 0
+                try:
+                    attraction['entrance_fee'] = float(fee_match.group(1)) if fee_match and fee_match.groups() else 0
+                except (IndexError, ValueError):
+                    attraction['entrance_fee'] = 0
             
             if isinstance(attraction.get('rating'), str):
                 # Try to extract rating from string
                 import re
                 rating_match = re.search(r'(\d+(?:\.\d+)?)', str(attraction['rating']))
-                attraction['rating'] = float(rating_match.group(1)) if rating_match else 4.0
+                try:
+                    attraction['rating'] = float(rating_match.group(1)) if rating_match and rating_match.groups() else 4.0
+                except (IndexError, ValueError):
+                    attraction['rating'] = 4.0
             
             # Ensure rating is within valid range
             if not isinstance(attraction.get('rating'), (int, float)) or attraction['rating'] < 1 or attraction['rating'] > 5:

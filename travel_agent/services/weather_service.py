@@ -17,17 +17,18 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 logger = logging.getLogger(__name__)
 
 class WeatherService:
-    """Service for weather data integration."""
+    """Service for weather data integration using AMap weather API."""
     
-    def __init__(self):
+    def __init__(self, use_mcp_tool=None):
         """Initialize the weather service."""
         self.api_key = os.getenv('OPENWEATHER_API_KEY')
         self.base_url = "https://api.openweathermap.org/data/2.5"
+        self.use_mcp_tool = use_mcp_tool  # MCP tool function for amap weather
         
-        if not self.api_key:
-            logger.warning("OpenWeather API key not found. Weather service will use mock data.")
+        if not self.api_key and not self.use_mcp_tool:
+            logger.warning("No weather API available. Weather service will use mock data.")
         
-        logger.info("Weather Service initialized")
+        logger.info("Weather Service initialized with AMap MCP integration")
     
     def get_weather_forecast(
         self,
@@ -36,7 +37,7 @@ class WeatherService:
         duration: int
     ) -> Dict[str, Any]:
         """
-        Get weather forecast for travel dates.
+        Get weather forecast for travel dates using AMap API.
         
         Args:
             destination: Destination city
@@ -49,42 +50,32 @@ class WeatherService:
         try:
             logger.info(f"Getting weather forecast for {destination} from {start_date} for {duration} days")
             
-            if not self.api_key:
-                logger.warning("No weather API key available, using enhanced mock data")
-                return self._get_enhanced_mock_weather_data(destination, start_date, duration)
+            # First try to get weather from AMap MCP service
+            if self.use_mcp_tool:
+                try:
+                    amap_weather = self._get_amap_weather(destination)
+                    if amap_weather.get('success'):
+                        # Convert AMap weather data to our format
+                        forecast_data = self._convert_amap_to_forecast(amap_weather, start_date, duration)
+                        return {
+                            'success': True,
+                            'destination': destination,
+                            'current_weather': amap_weather.get('current_weather', {}),
+                            'forecast': forecast_data,
+                            'source': 'AMap Weather API',
+                            'query_used': destination
+                        }
+                except Exception as amap_error:
+                    logger.warning(f"AMap weather API failed: {str(amap_error)}")
             
-            # Convert Chinese city names to Pinyin and try multiple variations
-            city_queries = self._get_city_query_variations(destination)
+            # Fallback to OpenWeatherMap if available
+            if self.api_key:
+                logger.info("Falling back to OpenWeatherMap API")
+                return self._get_openweather_forecast(destination, start_date, duration)
             
-            current_weather = None
-            forecast_data = []
-            
-            # Try different city name variations
-            for city_query in city_queries:
-                logger.info(f"Trying weather query for: {city_query}")
-                
-                # Get current weather first to validate city
-                current_weather = self._get_current_weather(city_query)
-                if current_weather.get('success'):
-                    # Get forecast data
-                    forecast_data = self._get_forecast_data(city_query, start_date, duration)
-                    if forecast_data:
-                        break
-                else:
-                    logger.warning(f"Weather query failed for {city_query}")
-            
-            if not current_weather or not current_weather.get('success') or not forecast_data:
-                logger.warning(f"Could not get accurate weather for {destination}, using enhanced mock data")
-                return self._get_enhanced_mock_weather_data(destination, start_date, duration)
-            
-            return {
-                'success': True,
-                'destination': destination,
-                'current_weather': current_weather.get('data', {}),
-                'forecast': forecast_data,
-                'source': 'OpenWeatherMap',
-                'query_used': city_queries[0] if city_queries else destination
-            }
+            # Final fallback to enhanced mock data
+            logger.warning(f"No weather API available, using enhanced mock data for {destination}")
+            return self._get_enhanced_mock_weather_data(destination, start_date, duration)
             
         except Exception as e:
             logger.error(f"Error getting weather forecast: {str(e)}")
@@ -370,8 +361,8 @@ class WeatherService:
             forecast_list = []
             start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             
-            # Mock weather conditions
-            conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Clear']
+            # Mock weather conditions in Chinese
+            conditions = ['晴天', '局部多云', '多云', '小雨', '晴朗']
             base_temp = 22  # Base temperature in Celsius
             
             for i in range(duration):
@@ -399,7 +390,7 @@ class WeatherService:
     
     def _generate_mock_day_forecast(self, date: datetime) -> Dict[str, Any]:
         """Generate mock forecast for a single day."""
-        conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Clear']
+        conditions = ['晴天', '局部多云', '多云', '晴朗']
         base_temp = 22
         day_of_year = date.timetuple().tm_yday
         
