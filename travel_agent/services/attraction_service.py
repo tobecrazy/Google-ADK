@@ -61,7 +61,7 @@ class AttractionService:
             # Add images to attractions
             try:
                 logger.info(f"Adding images to {len(final_attractions)} attractions for {destination}")
-                attractions_with_images = self.image_handler.get_attraction_images(destination, final_attractions)
+                attractions_with_images = self._add_images_to_attractions(destination, final_attractions)
                 
                 # Log image success rate
                 with_images = sum(1 for attr in attractions_with_images if attr.get('has_image', False))
@@ -79,6 +79,57 @@ class AttractionService:
         except Exception as e:
             logger.error(f"Error getting attractions: {str(e)}")
             return self._get_fallback_attractions(destination, budget)
+    
+    def _add_images_to_attractions(self, destination: str, attractions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Add images to attractions using multiple sources."""
+        enhanced_attractions = []
+        
+        for attraction in attractions:
+            try:
+                attraction_name = attraction.get('name', '')
+                
+                # Generate search terms for better image matching
+                search_terms = [
+                    f"{destination} {attraction_name}",
+                    f"{attraction_name} {destination}",
+                    attraction_name,
+                    f"{destination} 景点"
+                ]
+                
+                # Try to get image from multiple sources
+                image_url = None
+                for search_term in search_terms:
+                    try:
+                        image_url = self.image_handler.get_image_url(search_term, "unsplash")
+                        if image_url:
+                            break
+                    except Exception as e:
+                        logger.debug(f"Failed to get image for '{search_term}': {e}")
+                        continue
+                
+                # If no image found, try fallback sources
+                if not image_url:
+                    try:
+                        image_url = self.image_handler.get_image_url(f"{destination} landmark", "picsum")
+                    except Exception as e:
+                        logger.debug(f"Fallback image failed: {e}")
+                        image_url = self.image_handler.get_placeholder_image()
+                
+                # Add image information to attraction
+                enhanced_attraction = attraction.copy()
+                enhanced_attraction['image_url'] = image_url
+                enhanced_attraction['has_image'] = bool(image_url)
+                
+                enhanced_attractions.append(enhanced_attraction)
+                
+            except Exception as e:
+                logger.error(f"Error adding image to attraction {attraction.get('name', 'Unknown')}: {e}")
+                enhanced_attraction = attraction.copy()
+                enhanced_attraction['image_url'] = None
+                enhanced_attraction['has_image'] = False
+                enhanced_attractions.append(enhanced_attraction)
+        
+        return enhanced_attractions
     
     def _generate_attractions_with_ai(self, destination: str, budget: float) -> List[Dict[str, Any]]:
         """Use AI to generate attraction recommendations."""
@@ -218,9 +269,14 @@ class AttractionService:
             
             attraction = {}
             
-            # Extract name (look for patterns like "Name:", "**Name**", or first line)
+            # Clean the section first - remove markdown formatting and fix escape characters
+            cleaned_section = self._clean_text_content(section)
+            
+            # Extract name (look for patterns like "景点名称：", "**Name**", or first line)
             name_patterns = [
-                r'(?:name|attraction):\s*([^\n]+)',
+                r'景点名称[：:]\s*([^\n]+)',
+                r'名称[：:]\s*([^\n]+)',
+                r'\*\*景点名称[：:]\s*([^*]+)\*\*',
                 r'\*\*([^*]+)\*\*',
                 r'^([^:\n]+)(?:\n|:)',
                 r'(\d+\.\s*)?([^:\n]+)'
@@ -228,7 +284,7 @@ class AttractionService:
             
             name = None
             for pattern in name_patterns:
-                match = re.search(pattern, section, re.IGNORECASE | re.MULTILINE)
+                match = re.search(pattern, cleaned_section, re.IGNORECASE | re.MULTILINE)
                 if match:
                     # Safely get the last available group
                     try:
@@ -236,58 +292,64 @@ class AttractionService:
                     except IndexError:
                         name = match.group(0).strip()  # Fallback to entire match
                     name = re.sub(r'^\d+\.\s*', '', name)  # Remove numbering
-                    if len(name) > 5 and len(name) < 100:  # Reasonable name length
+                    name = self._clean_text_content(name)  # Clean the name
+                    if len(name) > 3 and len(name) < 100:  # Reasonable name length
                         break
             
             if not name:
-                name = f'{destination} Attraction {index + 1}'
+                name = f'{destination}景点{index + 1}'
             
             attraction['name'] = name
             
-            # Extract description (look for description field or use remaining text)
+            # Extract description - look for "简要描述" or use cleaned content
             desc_patterns = [
-                r'(?:description|about):\s*([^\n]+(?:\n[^\n:]+)*)',
-                r'(?:' + re.escape(name) + r'[^\n]*\n)([^\n:]+(?:\n[^\n:]+)*)'
+                r'简要描述[：:]\s*([^\n*]+(?:\n[^\n*:]+)*)',
+                r'描述[：:]\s*([^\n*]+(?:\n[^\n*:]+)*)',
+                r'(?:' + re.escape(name) + r'[^\n]*\n)([^\n:*]+(?:\n[^\n:*]+)*)'
             ]
             
             description = None
             for pattern in desc_patterns:
-                match = re.search(pattern, section, re.IGNORECASE | re.DOTALL)
+                match = re.search(pattern, cleaned_section, re.IGNORECASE | re.DOTALL)
                 if match:
                     try:
                         description = match.group(1).strip() if match.groups() else match.group(0).strip()
                     except IndexError:
                         description = match.group(0).strip()
+                    description = self._clean_text_content(description)
                     if len(description) > 20:
                         break
             
             if not description:
                 # Use first substantial paragraph as description
-                lines = [line.strip() for line in section.split('\n') if line.strip()]
+                lines = [line.strip() for line in cleaned_section.split('\n') if line.strip()]
                 for line in lines[1:]:  # Skip first line (likely the name)
-                    if len(line) > 30 and ':' not in line[:20]:
-                        description = line
+                    cleaned_line = self._clean_text_content(line)
+                    if len(cleaned_line) > 30 and ':' not in cleaned_line[:20] and not cleaned_line.startswith('*'):
+                        description = cleaned_line
                         break
             
-            attraction['description'] = description or f'A notable attraction in {destination} worth visiting.'
+            attraction['description'] = description or f'{destination}的著名景点，值得一游。'
             
             # Extract other fields using regex patterns
             field_patterns = {
-                'category': r'(?:category|type):\s*([^\n]+)',
-                'duration': r'(?:duration|time|visit):\s*([^\n]+)',
-                'entrance_fee': r'(?:fee|price|cost|entrance):\s*([^\n]+)',
-                'best_time': r'(?:best time|when):\s*([^\n]+)',
-                'difficulty': r'(?:difficulty|level):\s*([^\n]+)',
-                'rating': r'(?:rating|score):\s*([^\n]+)'
+                'category': r'类别[：:]\s*([^\n*]+)',
+                'duration': r'(?:预计游览时长|游览时长|时长)[：:]\s*([^\n*]+)',
+                'entrance_fee': r'(?:门票价格|门票|价格)[：:]\s*([^\n*]+)',
+                'best_time': r'最佳游览时间[：:]\s*([^\n*]+)',
+                'difficulty': r'难度等级[：:]\s*([^\n*]+)',
+                'rating': r'(?:rating|score|评分)[：:]\s*([^\n*]+)'
             }
             
             for field, pattern in field_patterns.items():
-                match = re.search(pattern, section, re.IGNORECASE)
+                match = re.search(pattern, cleaned_section, re.IGNORECASE)
                 if match:
                     try:
                         value = match.group(1).strip() if match.groups() else match.group(0).strip()
                     except IndexError:
                         value = match.group(0).strip()
+                    
+                    value = self._clean_text_content(value)
                     
                     if field == 'entrance_fee':
                         # Extract numeric value from fee
@@ -305,6 +367,47 @@ class AttractionService:
         except Exception as e:
             logger.error(f"Error parsing single attraction: {str(e)}")
             return None
+    
+    def _clean_text_content(self, text: str) -> str:
+        """Clean text content by removing markdown formatting and fixing escape characters."""
+        if not text:
+            return ""
+        
+        import html
+        import re
+        
+        # HTML decode
+        text = html.unescape(text)
+        
+        # Remove markdown formatting
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Remove **bold**
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)      # Remove *italic*
+        text = re.sub(r'`([^`]+)`', r'\1', text)        # Remove `code`
+        
+        # Remove bullet points and list markers
+        text = re.sub(r'^\s*[\*\-\+]\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^\s*\d+\.\s*', '', text, flags=re.MULTILINE)
+        
+        # Handle escape characters
+        text = text.replace('\\n', '\n')
+        text = text.replace('\\t', '\t')
+        text = text.replace('\\r', '\r')
+        text = text.replace('\\"', '"')
+        text = text.replace("\\'", "'")
+        text = text.replace('\\\\', '\\')
+        
+        # Clean up whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        # Handle special HTML entities
+        text = text.replace('&nbsp;', ' ')
+        text = text.replace('&', '&')
+        text = text.replace('<', '<')
+        text = text.replace('>', '>')
+        text = text.replace('"', '"')
+        
+        return text
     
     def _get_default_attractions(self, destination: str) -> List[Dict[str, Any]]:
         """Get default attractions when AI parsing fails or needs supplementing."""
