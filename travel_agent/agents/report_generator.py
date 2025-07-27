@@ -10,7 +10,13 @@ from typing import Dict, Any, List
 from jinja2 import Environment, FileSystemLoader, Template
 import google.generativeai as genai
 from dotenv import load_dotenv
-from ..utils.markdown_converter import MarkdownConverter
+
+# Add the parent directory to sys.path to enable absolute imports
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from travel_agent.utils.markdown_converter import MarkdownConverter
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))

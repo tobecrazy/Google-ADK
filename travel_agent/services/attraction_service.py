@@ -12,7 +12,10 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-from ..utils.image_handler import ImageHandler
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.image_handler import ImageHandler
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,12 @@ from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
-from .main import create_travel_planning_tool
+# Add the current directory to sys.path to enable absolute imports
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from travel_agent.main import create_travel_planning_tool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -190,11 +195,11 @@ def create_robust_travel_agent():
                 return None
             
             # Create travel agent with MCP tool access
-            from .main import TravelAgent
+            from travel_agent.main import TravelAgent
             agent = TravelAgent(use_mcp_tool=use_mcp_tool)
             
             # Parse dates and plan travel
-            from .utils.date_parser import parse_date, get_current_date_info
+            from travel_agent.utils.date_parser import parse_date, get_current_date_info
             current_info = get_current_date_info()
             parsed_start_date = parse_date(start_date)
             

@@ -15,11 +15,17 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-from ..services.weather_service import WeatherService
-from ..services.attraction_service import AttractionService
-from ..services.transport_service import TransportService
-from ..services.accommodation_service import AccommodationService
-from ..utils.web_scraper import WebScraper
+
+# Add the parent directory to sys.path to enable absolute imports
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from travel_agent.services.weather_service import WeatherService
+from travel_agent.services.attraction_service import AttractionService
+from travel_agent.services.transport_service import TransportService
+from travel_agent.services.accommodation_service import AccommodationService
+from travel_agent.utils.web_scraper import WebScraper
 
 logger = logging.getLogger(__name__)
 
