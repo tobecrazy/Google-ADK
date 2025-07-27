@@ -26,19 +26,22 @@ logger = logging.getLogger(__name__)
 class DataCollectorAgent:
     """Agent responsible for collecting comprehensive travel data."""
     
-    def __init__(self):
+    def __init__(self, use_mcp_tool=None):
         """Initialize the data collector with all services."""
-        self.weather_service = WeatherService()
+        self.weather_service = WeatherService(use_mcp_tool=use_mcp_tool)
         self.attraction_service = AttractionService()
         self.transport_service = TransportService()
         self.accommodation_service = AccommodationService()
         self.web_scraper = WebScraper()
         
+        # Store MCP tool for potential use in other services
+        self.use_mcp_tool = use_mcp_tool
+        
         # Initialize Gemini for intelligent data processing
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         
-        logger.info("Data Collector Agent initialized")
+        logger.info("Data Collector Agent initialized with MCP integration")
     
     def collect_travel_data(
         self,

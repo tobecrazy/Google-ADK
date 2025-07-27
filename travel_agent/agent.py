@@ -6,7 +6,7 @@ Fixed version that handles MCP connection issues gracefully
 import os
 import logging
 import asyncio
-from typing import List, Optional
+from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
@@ -167,8 +167,71 @@ def create_robust_travel_agent():
         for failure in status['failed_connections']:
             logger.warning(f"   - {failure}")
     
-    # Add the original travel planning tool
-    all_tools = mcp_tools + [create_travel_planning_tool]
+    # Create a wrapper function that includes MCP tool access
+    def create_travel_planning_tool_with_mcp(
+        destination: str,
+        departure_location: str,
+        start_date: str,
+        duration: int,
+        budget: float
+    ) -> Dict[str, Any]:
+        """Travel planning tool with MCP integration."""
+        try:
+            # Create MCP tool function for the travel agent
+            def use_mcp_tool(server_name: str, tool_name: str, arguments: dict):
+                # Find the appropriate MCP toolset
+                for toolset in mcp_tools:
+                    try:
+                        # Use the toolset to call the tool
+                        return toolset.call_tool(tool_name, arguments)
+                    except Exception as e:
+                        logger.warning(f"Failed to call {tool_name} on toolset: {e}")
+                        continue
+                return None
+            
+            # Create travel agent with MCP tool access
+            from .main import TravelAgent
+            agent = TravelAgent(use_mcp_tool=use_mcp_tool)
+            
+            # Parse dates and plan travel
+            from .utils.date_parser import parse_date, get_current_date_info
+            current_info = get_current_date_info()
+            parsed_start_date = parse_date(start_date)
+            
+            logger.info(f"Planning travel with MCP integration: {departure_location} -> {destination}")
+            logger.info(f"Start date: {parsed_start_date} (original: {start_date})")
+            
+            result = agent.plan_travel(
+                destination=destination,
+                departure_location=departure_location,
+                start_date=parsed_start_date,
+                duration=duration,
+                budget=budget
+            )
+            
+            # Add MCP status info
+            if result.get('success'):
+                result['mcp_integration'] = {
+                    'available_tools': mcp_manager.available_tools,
+                    'date_parsing': {
+                        'original_date': start_date,
+                        'parsed_date': parsed_start_date,
+                        'current_date': current_info['current_date']
+                    }
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in MCP-integrated travel planning: {str(e)}")
+            return {
+                'success': False,
+                'error': 'Error in MCP-integrated travel planning',
+                'details': str(e)
+            }
+    
+    # Add the MCP-integrated travel planning tool
+    all_tools = mcp_tools + [create_travel_planning_tool_with_mcp]
     
     # Create enhanced instruction based on available tools
     instruction_parts = [

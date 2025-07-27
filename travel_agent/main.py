@@ -30,7 +30,7 @@ class TravelAgent:
     
     def __init__(self, use_mcp_tool=None):
         """Initialize the Travel Agent with all sub-agents."""
-        self.data_collector = DataCollectorAgent()
+        self.data_collector = DataCollectorAgent(use_mcp_tool=use_mcp_tool)
         self.travel_planner = TravelPlannerAgent()
         self.report_generator = ReportGeneratorAgent()
         
