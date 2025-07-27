@@ -33,6 +33,10 @@ class AttractionService:
         """
         Get attractions and points of interest for a destination.
         
+        Note: Real-time attraction data is now handled by Google ADK MCP tools
+        at the agent level. This service provides AI-generated attractions that
+        can be enhanced with real MCP data when the agent uses MCP tools.
+        
         Args:
             destination: Target destination
             budget: Total budget for activities
@@ -43,14 +47,15 @@ class AttractionService:
         try:
             logger.info(f"Getting attractions for {destination}")
             
-            # Use AI to generate comprehensive attraction data
-            attractions_data = self._generate_attractions_with_ai(destination, budget)
+            # Generate comprehensive AI-based attractions
+            # Real-time MCP data integration happens at the agent level
+            enhanced_attractions = self._generate_attractions_with_ai(destination, budget)
             
             # Enhance with additional details
-            enhanced_attractions = self._enhance_attraction_data(attractions_data, budget)
+            final_attractions = self._enhance_attraction_data(enhanced_attractions, budget)
             
             # Add images to attractions
-            attractions_with_images = self.image_handler.get_attraction_images(destination, enhanced_attractions)
+            attractions_with_images = self.image_handler.get_attraction_images(destination, final_attractions)
             
             return attractions_with_images
             
@@ -523,6 +528,7 @@ class AttractionService:
                 'highlights': ['Panoramic views', 'Photography']
             }
         ]
+    
     
     def _get_fallback_attractions(self, destination: str, budget: float) -> List[Dict[str, Any]]:
         """Get fallback attractions when all else fails."""
