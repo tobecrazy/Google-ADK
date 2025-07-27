@@ -83,30 +83,30 @@ class AttractionService:
             activities_budget = budget * 0.15  # 15% of total budget for activities
             
             prompt = f"""
-            Generate a comprehensive list of attractions and activities for {destination}.
-            Consider a total activities budget of ${activities_budget:.2f}.
-            
-            For each attraction, provide:
-            1. Name
-            2. Brief description (2-3 sentences)
-            3. Category (Historical, Cultural, Natural, Entertainment, Religious, etc.)
-            4. Estimated visit duration
-            5. Approximate entrance fee (if any)
-            6. Best time to visit
-            7. Difficulty level (Easy, Moderate, Challenging)
-            8. Age suitability
-            9. Photography allowed (Yes/No/Restricted)
-            10. Accessibility information
-            
-            Include a mix of:
-            - Must-see famous attractions (5-7)
-            - Hidden gems and local favorites (3-5)
-            - Free or low-cost activities (3-4)
-            - Cultural experiences (2-3)
-            - Outdoor activities (2-3)
-            - Family-friendly options (2-3)
-            
-            Provide 15-20 attractions total, covering different interests and budgets.
+            请为{destination}生成详细的景点和活动清单，考虑总活动预算为{activities_budget:.2f}元。
+
+            请为每个景点提供以下信息（全部使用中文）：
+            1. 景点名称（使用中文名称）
+            2. 简要描述（2-3句话，中文）
+            3. 类别（历史文化、自然风光、娱乐休闲、宗教场所等）
+            4. 预计游览时长
+            5. 大概门票价格（如有）
+            6. 最佳游览时间
+            7. 难度等级（简单、中等、困难）
+            8. 适合年龄
+            9. 是否允许拍照（是/否/限制）
+            10. 无障碍设施信息
+
+            请包含以下类型的景点：
+            - 必游著名景点（5-7个）
+            - 隐藏宝藏和当地人推荐（3-5个）
+            - 免费或低成本活动（3-4个）
+            - 文化体验（2-3个）
+            - 户外活动（2-3个）
+            - 适合家庭的选择（2-3个）
+
+            总共提供15-20个景点，涵盖不同兴趣和预算。
+            请确保所有景点名称和描述都使用中文。
             """
             
             response = self.model.generate_content(prompt)
@@ -308,9 +308,10 @@ class AttractionService:
         try:
             # Try to generate better default attractions using AI
             fallback_prompt = f"""
-            Generate 6 realistic attractions for {destination}. Use actual place names if known, otherwise create plausible names.
-            For each attraction, provide: Name, Description (1-2 sentences), Category, Duration, Entrance Fee (number), Rating (1-5).
-            Format as simple list with clear separation between attractions.
+            请为{destination}生成6个真实的景点。如果知道实际地名请使用，否则创建合理的名称。
+            请为每个景点提供：景点名称（中文）、描述（1-2句话，中文）、类别、游览时长、门票价格（数字）、评分（1-5分）。
+            请用简单列表格式，景点之间清楚分隔。
+            确保所有内容都使用中文。
             """
             
             try:
@@ -326,49 +327,49 @@ class AttractionService:
             # If AI fails, return minimal hardcoded fallbacks
             return [
                 {
-                    'name': f'Historic District of {destination}',
-                    'description': f'Explore the historic heart of {destination} with its unique architecture and cultural heritage.',
-                    'category': 'Historical',
-                    'duration': '3-4 hours',
+                    'name': f'{destination}历史街区',
+                    'description': f'探索{destination}的历史中心，这里有独特的建筑风格和深厚的文化底蕴，是了解当地历史文化的绝佳去处。',
+                    'category': '历史文化',
+                    'duration': '3-4小时',
                     'entrance_fee': 0,
-                    'best_time': 'Morning or late afternoon',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Mostly accessible',
+                    'best_time': '上午或傍晚',
+                    'difficulty': '简单',
+                    'age_suitability': '适合所有年龄',
+                    'photography': '允许',
+                    'accessibility': '大部分区域可达',
                     'rating': 4.5,
-                    'highlights': ['Historic architecture', 'Cultural sites', 'Walking tours'],
-                    'search_keywords': [f'{destination} historic', f'{destination} old town', f'{destination} heritage']
+                    'highlights': ['历史建筑', '文化遗址', '步行游览'],
+                    'search_keywords': [f'{destination} 历史', f'{destination} 古城', f'{destination} 文化遗产']
                 },
                 {
-                    'name': f'Cultural Museum of {destination}',
-                    'description': f'Local museum showcasing the art, history, and cultural heritage of {destination}.',
-                    'category': 'Cultural',
-                    'duration': '2-3 hours',
+                    'name': f'{destination}文化博物馆',
+                    'description': f'展示{destination}艺术、历史和文化遗产的当地博物馆，收藏丰富，是深入了解当地文化的重要场所。',
+                    'category': '文化教育',
+                    'duration': '2-3小时',
                     'entrance_fee': 12,
-                    'best_time': 'Any time',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Restricted',
-                    'accessibility': 'Fully accessible',
+                    'best_time': '任何时间',
+                    'difficulty': '简单',
+                    'age_suitability': '适合所有年龄',
+                    'photography': '限制拍照',
+                    'accessibility': '完全无障碍',
                     'rating': 4.2,
-                    'highlights': ['Local art', 'Cultural exhibits', 'Historical artifacts'],
-                    'search_keywords': [f'{destination} museum', f'{destination} culture', f'{destination} art']
+                    'highlights': ['当地艺术', '文化展览', '历史文物'],
+                    'search_keywords': [f'{destination} 博物馆', f'{destination} 文化', f'{destination} 艺术']
                 },
                 {
-                    'name': f'Main Square of {destination}',
-                    'description': f'Central gathering place in {destination} with local atmosphere and nearby shops and cafes.',
-                    'category': 'Cultural',
-                    'duration': '1-2 hours',
+                    'name': f'{destination}中心广场',
+                    'description': f'{destination}的中心聚集地，充满当地生活气息，周围有商店和咖啡馆，是体验当地文化的好地方。',
+                    'category': '文化休闲',
+                    'duration': '1-2小时',
                     'entrance_fee': 0,
-                    'best_time': 'Evening',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Fully accessible',
+                    'best_time': '傍晚',
+                    'difficulty': '简单',
+                    'age_suitability': '适合所有年龄',
+                    'photography': '允许',
+                    'accessibility': '完全无障碍',
                     'rating': 4.3,
-                    'highlights': ['Local atmosphere', 'People watching', 'Nearby dining'],
-                    'search_keywords': [f'{destination} square', f'{destination} plaza', f'{destination} center']
+                    'highlights': ['当地氛围', '人文观察', '周边餐饮'],
+                    'search_keywords': [f'{destination} 广场', f'{destination} 中心', f'{destination} 市中心']
                 }
             ]
         except Exception as e:
@@ -509,31 +510,31 @@ class AttractionService:
         """Get sample attractions when AI generation fails."""
         return [
             {
-                'name': f'{destination} Main Square',
-                'description': 'Central square with historic significance and local atmosphere.',
-                'category': 'Historical',
-                'duration': '1-2 hours',
+                'name': f'{destination}主广场',
+                'description': f'{destination}的中心广场，具有历史意义和浓厚的当地生活氛围，是体验当地文化的理想场所。',
+                'category': '历史文化',
+                'duration': '1-2小时',
                 'entrance_fee': 0,
                 'rating': 4.2,
-                'highlights': ['Historic architecture', 'Local culture']
+                'highlights': ['历史建筑', '当地文化']
             },
             {
-                'name': f'{destination} Cultural Center',
-                'description': 'Hub of local arts and cultural activities.',
-                'category': 'Cultural',
-                'duration': '2-3 hours',
+                'name': f'{destination}文化中心',
+                'description': f'{destination}当地艺术和文化活动的中心，经常举办各种展览和文化活动。',
+                'category': '文化教育',
+                'duration': '2-3小时',
                 'entrance_fee': 10,
                 'rating': 4.0,
-                'highlights': ['Art exhibitions', 'Cultural events']
+                'highlights': ['艺术展览', '文化活动']
             },
             {
-                'name': f'{destination} Scenic Viewpoint',
-                'description': 'Beautiful views of the city and surrounding landscape.',
-                'category': 'Natural',
-                'duration': '1 hour',
+                'name': f'{destination}观景台',
+                'description': f'欣赏{destination}城市和周边风景的绝佳观景点，景色优美，适合拍照留念。',
+                'category': '自然风光',
+                'duration': '1小时',
                 'entrance_fee': 5,
                 'rating': 4.4,
-                'highlights': ['Panoramic views', 'Photography']
+                'highlights': ['全景视野', '摄影胜地']
             }
         ]
     
@@ -543,20 +544,20 @@ class AttractionService:
         try:
             return [
                 {
-                    'name': f'{destination} City Tour',
-                    'description': 'Comprehensive city tour covering major attractions and landmarks.',
-                    'category': 'General',
-                    'duration': '4-6 hours',
+                    'name': f'{destination}城市观光游',
+                    'description': f'全面的{destination}城市观光游，涵盖主要景点和地标建筑，是初次到访的理想选择。',
+                    'category': '综合观光',
+                    'duration': '4-6小时',
                     'entrance_fee': 30,
-                    'best_time': 'Morning',
-                    'difficulty': 'Easy',
-                    'age_suitability': 'All ages',
-                    'photography': 'Yes',
-                    'accessibility': 'Varies by location',
+                    'best_time': '上午',
+                    'difficulty': '简单',
+                    'age_suitability': '适合所有年龄',
+                    'photography': '允许',
+                    'accessibility': '因地点而异',
                     'rating': 4.0,
-                    'highlights': ['Overview of city', 'Multiple attractions', 'Guided experience'],
+                    'highlights': ['城市概览', '多个景点', '导游服务'],
                     'budget_friendly': True,
-                    'tips': ['Book in advance', 'Wear comfortable shoes', 'Bring camera']
+                    'tips': ['提前预订', '穿舒适的鞋子', '携带相机']
                 }
             ]
             

@@ -463,7 +463,7 @@ class WeatherService:
                 'temp_range': 8,
                 'humidity': 65,
                 'wind_speed': 3.2,
-                'common_conditions': ['Partly Cloudy', 'Sunny', 'Cloudy'],
+                'common_conditions': ['局部多云', '晴天', '多云'],
                 'precipitation_chance': 0.2
             }
             
@@ -478,7 +478,7 @@ class WeatherService:
                             'base_temp': 15,
                             'temp_range': 8,
                             'humidity': 70,
-                            'common_conditions': ['Mild', 'Partly Cloudy', 'Overcast'],
+                            'common_conditions': ['温和', '局部多云', '阴天'],
                             'precipitation_chance': 0.15
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -486,7 +486,7 @@ class WeatherService:
                             'base_temp': 30,
                             'temp_range': 6,
                             'humidity': 85,
-                            'common_conditions': ['Hot and Humid', 'Thunderstorms', 'Partly Cloudy'],
+                            'common_conditions': ['炎热潮湿', '雷阵雨', '局部多云'],
                             'precipitation_chance': 0.6
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -494,7 +494,7 @@ class WeatherService:
                             'base_temp': 24,
                             'temp_range': 8,
                             'humidity': 80,
-                            'common_conditions': ['Warm', 'Rainy', 'Humid'],
+                            'common_conditions': ['温暖', '多雨', '潮湿'],
                             'precipitation_chance': 0.4
                         })
                     else:  # Fall (9, 10, 11)
@@ -502,7 +502,7 @@ class WeatherService:
                             'base_temp': 26,
                             'temp_range': 6,
                             'humidity': 75,
-                            'common_conditions': ['Pleasant', 'Sunny', 'Comfortable'],
+                            'common_conditions': ['宜人', '晴天', '舒适'],
                             'precipitation_chance': 0.2
                         })
                 
@@ -513,7 +513,7 @@ class WeatherService:
                             'base_temp': 2,
                             'temp_range': 12,
                             'humidity': 55,
-                            'common_conditions': ['Cold', 'Clear', 'Dry'],
+                            'common_conditions': ['寒冷', '晴朗', '干燥'],
                             'precipitation_chance': 0.1
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -521,7 +521,7 @@ class WeatherService:
                             'base_temp': 28,
                             'temp_range': 10,
                             'humidity': 70,
-                            'common_conditions': ['Hot', 'Sunny', 'Occasional Rain'],
+                            'common_conditions': ['炎热', '晴天', '偶有降雨'],
                             'precipitation_chance': 0.3
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -529,7 +529,7 @@ class WeatherService:
                             'base_temp': 18,
                             'temp_range': 12,
                             'humidity': 60,
-                            'common_conditions': ['Mild', 'Windy', 'Variable'],
+                            'common_conditions': ['温和', '多风', '多变'],
                             'precipitation_chance': 0.2
                         })
                     else:  # Fall
@@ -537,7 +537,7 @@ class WeatherService:
                             'base_temp': 15,
                             'temp_range': 10,
                             'humidity': 58,
-                            'common_conditions': ['Cool', 'Clear', 'Comfortable'],
+                            'common_conditions': ['凉爽', '晴朗', '舒适'],
                             'precipitation_chance': 0.15
                         })
                 
@@ -548,7 +548,7 @@ class WeatherService:
                             'base_temp': -2,
                             'temp_range': 15,
                             'humidity': 45,
-                            'common_conditions': ['Cold', 'Dry', 'Clear'],
+                            'common_conditions': ['寒冷', '干燥', '晴朗'],
                             'precipitation_chance': 0.05
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -556,7 +556,7 @@ class WeatherService:
                             'base_temp': 27,
                             'temp_range': 8,
                             'humidity': 75,
-                            'common_conditions': ['Hot', 'Humid', 'Thunderstorms'],
+                            'common_conditions': ['炎热', '潮湿', '雷阵雨'],
                             'precipitation_chance': 0.4
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -564,7 +564,7 @@ class WeatherService:
                             'base_temp': 16,
                             'temp_range': 12,
                             'humidity': 55,
-                            'common_conditions': ['Mild', 'Windy', 'Dusty'],
+                            'common_conditions': ['温和', '多风', '有沙尘'],
                             'precipitation_chance': 0.15
                         })
                     else:  # Fall
@@ -572,7 +572,7 @@ class WeatherService:
                             'base_temp': 14,
                             'temp_range': 10,
                             'humidity': 60,
-                            'common_conditions': ['Pleasant', 'Clear', 'Crisp'],
+                            'common_conditions': ['宜人', '晴朗', '清爽'],
                             'precipitation_chance': 0.1
                         })
                 
@@ -583,7 +583,7 @@ class WeatherService:
                             'base_temp': 6,
                             'temp_range': 8,
                             'humidity': 70,
-                            'common_conditions': ['Cool', 'Damp', 'Overcast'],
+                            'common_conditions': ['凉爽', '潮湿', '阴天'],
                             'precipitation_chance': 0.2
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -591,7 +591,7 @@ class WeatherService:
                             'base_temp': 29,
                             'temp_range': 6,
                             'humidity': 85,
-                            'common_conditions': ['Hot', 'Humid', 'Rainy'],
+                            'common_conditions': ['炎热', '潮湿', '多雨'],
                             'precipitation_chance': 0.5
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -599,7 +599,7 @@ class WeatherService:
                             'base_temp': 19,
                             'temp_range': 10,
                             'humidity': 75,
-                            'common_conditions': ['Mild', 'Rainy', 'Variable'],
+                            'common_conditions': ['温和', '多雨', '多变'],
                             'precipitation_chance': 0.35
                         })
                     else:  # Fall
@@ -607,7 +607,7 @@ class WeatherService:
                             'base_temp': 21,
                             'temp_range': 8,
                             'humidity': 70,
-                            'common_conditions': ['Pleasant', 'Comfortable', 'Sunny'],
+                            'common_conditions': ['宜人', '舒适', '晴天'],
                             'precipitation_chance': 0.2
                         })
                 
@@ -618,7 +618,7 @@ class WeatherService:
                             'base_temp': 17,
                             'temp_range': 6,
                             'humidity': 65,
-                            'common_conditions': ['Mild', 'Pleasant', 'Dry'],
+                            'common_conditions': ['温和', '宜人', '干燥'],
                             'precipitation_chance': 0.1
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -626,7 +626,7 @@ class WeatherService:
                             'base_temp': 31,
                             'temp_range': 5,
                             'humidity': 85,
-                            'common_conditions': ['Hot', 'Humid', 'Thunderstorms'],
+                            'common_conditions': ['炎热', '潮湿', '雷阵雨'],
                             'precipitation_chance': 0.65
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -634,7 +634,7 @@ class WeatherService:
                             'base_temp': 25,
                             'temp_range': 7,
                             'humidity': 80,
-                            'common_conditions': ['Warm', 'Humid', 'Rainy'],
+                            'common_conditions': ['温暖', '潮湿', '多雨'],
                             'precipitation_chance': 0.4
                         })
                     else:  # Fall
@@ -642,7 +642,7 @@ class WeatherService:
                             'base_temp': 27,
                             'temp_range': 5,
                             'humidity': 70,
-                            'common_conditions': ['Warm', 'Comfortable', 'Pleasant'],
+                            'common_conditions': ['温暖', '舒适', '宜人'],
                             'precipitation_chance': 0.15
                         })
                 
@@ -653,7 +653,7 @@ class WeatherService:
                             'base_temp': 8,
                             'temp_range': 8,
                             'humidity': 80,
-                            'common_conditions': ['Cool', 'Foggy', 'Overcast'],
+                            'common_conditions': ['凉爽', '多雾', '阴天'],
                             'precipitation_chance': 0.15
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -661,7 +661,7 @@ class WeatherService:
                             'base_temp': 26,
                             'temp_range': 6,
                             'humidity': 85,
-                            'common_conditions': ['Warm', 'Humid', 'Rainy'],
+                            'common_conditions': ['温暖', '潮湿', '多雨'],
                             'precipitation_chance': 0.6
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -669,7 +669,7 @@ class WeatherService:
                             'base_temp': 19,
                             'temp_range': 8,
                             'humidity': 75,
-                            'common_conditions': ['Mild', 'Rainy', 'Humid'],
+                            'common_conditions': ['温和', '多雨', '潮湿'],
                             'precipitation_chance': 0.4
                         })
                     else:  # Fall
@@ -677,7 +677,7 @@ class WeatherService:
                             'base_temp': 18,
                             'temp_range': 8,
                             'humidity': 80,
-                            'common_conditions': ['Pleasant', 'Overcast', 'Mild'],
+                            'common_conditions': ['宜人', '阴天', '温和'],
                             'precipitation_chance': 0.3
                         })
                 
@@ -689,7 +689,7 @@ class WeatherService:
                             'base_temp': 5,
                             'temp_range': 12,
                             'humidity': 60,
-                            'common_conditions': ['Cold', 'Clear', 'Dry'],
+                            'common_conditions': ['寒冷', '晴朗', '干燥'],
                             'precipitation_chance': 0.1
                         })
                     elif month in [6, 7, 8]:  # Summer
@@ -697,7 +697,7 @@ class WeatherService:
                             'base_temp': 28,
                             'temp_range': 8,
                             'humidity': 75,
-                            'common_conditions': ['Hot', 'Humid', 'Rainy'],
+                            'common_conditions': ['炎热', '潮湿', '多雨'],
                             'precipitation_chance': 0.4
                         })
                     elif month in [3, 4, 5]:  # Spring
@@ -705,7 +705,7 @@ class WeatherService:
                             'base_temp': 18,
                             'temp_range': 10,
                             'humidity': 65,
-                            'common_conditions': ['Mild', 'Variable', 'Pleasant'],
+                            'common_conditions': ['温和', '多变', '宜人'],
                             'precipitation_chance': 0.25
                         })
                     else:  # Fall
@@ -713,7 +713,7 @@ class WeatherService:
                             'base_temp': 16,
                             'temp_range': 10,
                             'humidity': 65,
-                            'common_conditions': ['Cool', 'Pleasant', 'Clear'],
+                            'common_conditions': ['凉爽', '宜人', '晴朗'],
                             'precipitation_chance': 0.2
                         })
             
@@ -727,7 +727,7 @@ class WeatherService:
                 'temp_range': 8,
                 'humidity': 65,
                 'wind_speed': 3.2,
-                'common_conditions': ['Partly Cloudy', 'Sunny', 'Cloudy'],
+                'common_conditions': ['局部多云', '晴天', '多云'],
                 'precipitation_chance': 0.2
             }
     
