@@ -147,7 +147,7 @@ agent = TravelAgent()
 
 # Plan a trip with Chinese input
 trip_request = {
-    "destination": "京都",
+    "destination": "西安",
     "departure_location": "上海",
     "start_date": "明天",  # Smart date parsing
     "duration": "5天",
@@ -176,7 +176,7 @@ business_trip = agent.plan_travel(
 #### Family Vacation
 ```python
 family_trip = agent.plan_travel(
-    destination="大阪",
+    destination="大连",
     departure_location="广州", 
     start_date="后天",  # Day after tomorrow
     duration="7天",
