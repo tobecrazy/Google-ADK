@@ -407,4 +407,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for intelligent travel planning**
 
+[中文版 README](README_zh.md)
+
 For detailed development documentation, see [Travel_AI_Agent.md](Travel_AI_Agent.md) | For technical improvements, see [COMPREHENSIVE_IMPROVEMENTS_SUMMARY.md](COMPREHENSIVE_IMPROVEMENTS_SUMMARY.md)

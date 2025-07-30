@@ -407,4 +407,6 @@ python -m pytest tests/ --cov=travel_agent
 
 **用 ❤️ 制作，为智能旅行规划**
 
+[English README](README.md)
+
 有关详细的开发文档，请参见 [Travel_AI_Agent.md](Travel_AI_Agent.md) | 有关技术改进，请参见 [COMPREHENSIVE_IMPROVEMENTS_SUMMARY.md](COMPREHENSIVE_IMPROVEMENTS_SUMMARY.md)

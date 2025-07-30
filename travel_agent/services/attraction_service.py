@@ -97,10 +97,12 @@ class AttractionService:
                 ]
                 
                 # Try to get image from multiple sources
+                # Try to get image from image handler
                 image_url = None
                 for search_term in search_terms:
                     try:
-                        image_url = self.image_handler.get_image_url(search_term, "unsplash")
+                        # Use the new image handler method
+                        image_url = self.image_handler._get_unsplash_image(search_term)
                         if image_url:
                             break
                     except Exception as e:
@@ -110,10 +112,11 @@ class AttractionService:
                 # If no image found, try fallback sources
                 if not image_url:
                     try:
-                        image_url = self.image_handler.get_image_url(f"{destination} landmark", "picsum")
+                        image_url = self.image_handler._try_picsum_image(f"{destination} landmark")
                     except Exception as e:
-                        logger.debug(f"Fallback image failed: {e}")
-                        image_url = self.image_handler.get_placeholder_image()
+                        logger.debug(f"Picsum fallback failed: {e}")
+                        # Generate a placeholder URL directly
+                        image_url = self.image_handler._generate_placeholder_url(f"{destination} attraction")
                 
                 # Add image information to attraction
                 enhanced_attraction = attraction.copy()
