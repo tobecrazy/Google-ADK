@@ -378,19 +378,32 @@ class ImageHandler:
     def _generate_placeholder_url(self, search_term: str) -> str:
         """Generate a placeholder image URL as fallback."""
         try:
-            # Create a simple colored placeholder with text
-            clean_term = search_term.replace(' ', '+')[:20]  # Limit length
+            # Create a more descriptive placeholder with text
+            clean_term = search_term.replace(' ', '+')[:30]  # Limit length
             colors = ['4A90E2', '50C878', 'FF6B6B', 'FFD93D', '6C5CE7', 'A29BFE']
             
             # Choose color based on search term hash
             color_index = abs(hash(search_term)) % len(colors)
             bg_color = colors[color_index]
             
-            return f"https://via.placeholder.com/800x600/{bg_color}/FFFFFF?text={clean_term}"
+            # Add an emoji based on the type of place
+            emoji = "📷"
+            if any(word in search_term.lower() for word in ['海洋', '水族', 'aquarium', '海洋馆']):
+                emoji = "🐋"
+            elif any(word in search_term.lower() for word in ['公园', 'park']):
+                emoji = "🌳"
+            elif any(word in search_term.lower() for word in ['博物馆', 'museum']):
+                emoji = "🏛️"
+            elif any(word in search_term.lower() for word in ['餐厅', 'restaurant']):
+                emoji = "🍽️"
+            elif any(word in search_term.lower() for word in ['寺庙', 'temple']):
+                emoji = "🛕"
+            
+            return f"https://via.placeholder.com/800x600/{bg_color}/FFFFFF?text={emoji}+{clean_term}"
             
         except Exception as e:
             logger.error(f"Error generating placeholder URL: {str(e)}")
-            return "https://via.placeholder.com/800x600/CCCCCC/FFFFFF?text=No+Image"
+            return "https://via.placeholder.com/800x600/CCCCCC/FFFFFF?text=📷+No+Image"
     
     def process_travel_images(
         self,
@@ -551,7 +564,7 @@ class ImageHandler:
             Base64 data URL for placeholder image
         """
         try:
-            # Create a simple placeholder image
+            # Create a simple placeholder image with gradient background
             image = Image.new('RGB', (width, height), color='#f0f0f0')
             
             # Convert to base64
@@ -559,4 +572,20 @@ class ImageHandler:
             
         except Exception as e:
             logger.error(f"Error creating placeholder image: {str(e)}")
-            return "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=="
+            # Return a better SVG placeholder with more descriptive text
+            import urllib.parse
+            encoded_text = urllib.parse.quote_plus(text[:30])  # Limit text length
+            svg_placeholder = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#e0e0e0;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#f5f5f5;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grad)" />
+                <text x="50%" y="40%" font-family="Arial, sans-serif" font-size="24" fill="#666" text-anchor="middle">No Image</text>
+                <text x="50%" y="60%" font-family="Arial, sans-serif" font-size="16" fill="#999" text-anchor="middle">{encoded_text}</text>
+                <text x="50%" y="80%" font-family="Arial, sans-serif" font-size="40" fill="#ccc" text-anchor="middle">📷</text>
+            </svg>'''
+            import base64
+            return f"data:image/svg+xml;base64,{base64.b64encode(svg_placeholder.encode('utf-8')).decode('utf-8')}"

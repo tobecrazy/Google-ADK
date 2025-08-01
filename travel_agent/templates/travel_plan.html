@@ -1079,8 +1079,9 @@
                             {% if attraction.image_url %}
                             <img src="{{ attraction.image_url }}" alt="{{ attraction.name or '景点图片' }}" loading="lazy">
                             {% else %}
-                            <div style="width: 100%; height: 100%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3em; font-weight: 600;">
-                                📸 {{ attraction.name or '景点图片' }}
+                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-size: 1.1em; font-weight: 600; text-align: center; padding: 20px; box-sizing: border-box;">
+                                <span style="font-size: 2em; margin-bottom: 10px;">📸</span>
+                                <span>{{ attraction.name or '景点图片' }}</span>
                             </div>
                             {% endif %}
                             <div class="card-badge">热门</div>
@@ -1144,8 +1145,9 @@
                             {% if restaurant.image_url %}
                             <img src="{{ restaurant.image_url }}" alt="{{ restaurant.name or '餐厅图片' }}" loading="lazy">
                             {% else %}
-                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3em; font-weight: 600;">
-                                🍽️ {{ restaurant.name or '餐厅图片' }}
+                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-size: 1.1em; font-weight: 600; text-align: center; padding: 20px; box-sizing: border-box;">
+                                <span style="font-size: 2em; margin-bottom: 10px;">🍽️</span>
+                                <span>{{ restaurant.name or '餐厅图片' }}</span>
                             </div>
                             {% endif %}
                             <div class="card-badge">推荐</div>

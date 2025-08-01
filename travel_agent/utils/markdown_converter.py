@@ -25,7 +25,20 @@ class MarkdownConverter:
         
         html = markdown_text
         
-        # Convert headers
+        # Convert headers (both # and ** formats)
+        # Convert H1 headers (# Header)
+        html = re.sub(r'^#\s+(.+?)$', r'<h1 style="color: #28a745; font-size: 1.8em; margin: 25px 0 15px 0; border-bottom: 3px solid #28a745; padding-bottom: 8px;">\1</h1>', html, flags=re.MULTILINE)
+        
+        # Convert H2 headers (## Header)
+        html = re.sub(r'^##\s+(.+?)$', r'<h2 style="color: #28a745; font-size: 1.5em; margin: 20px 0 10px 0; border-bottom: 2px solid #28a745; padding-bottom: 5px;">\1</h2>', html, flags=re.MULTILINE)
+        
+        # Convert H3 headers (### Header)
+        html = re.sub(r'^###\s+(.+?)$', r'<h3 style="color: #333; font-size: 1.3em; margin: 15px 0 8px 0;">\1</h3>', html, flags=re.MULTILINE)
+        
+        # Handle any remaining ## that might not be at the start of a line
+        html = re.sub(r'##\s+(.+?)(?=\n|$)', r'<strong>\1</strong>', html)
+        
+        # Convert old format headers (**Header**)
         html = re.sub(r'\*\*([^*]+)\*\*\s*\n\n', r'<h2 style="color: #28a745; font-size: 1.4em; margin: 20px 0 10px 0; border-bottom: 2px solid #28a745; padding-bottom: 5px;">\1</h2>\n', html)
         html = re.sub(r'\*\*([^*]+)\*\*\s*\n', r'<h3 style="color: #333; font-size: 1.2em; margin: 15px 0 8px 0;">\1</h3>\n', html)
         
@@ -92,5 +105,8 @@ class MarkdownConverter:
         
         # Remove markdown artifacts that weren't converted
         text = re.sub(r'[*_`]+', '', text)
+        
+        # Remove leftover # symbols at the beginning of lines
+        text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
         
         return text.strip()
