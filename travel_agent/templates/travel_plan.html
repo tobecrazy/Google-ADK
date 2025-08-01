@@ -1221,14 +1221,14 @@
                         
                         <div class="card-content">
                             <h4>
-                                {% if 'Observatory Deck' in (attraction.name or '') %}{{ destination }}观景台
-                                {% elif 'Historic Center' in (attraction.name or '') %}{{ destination }}历史中心
-                                {% elif 'Central Park' in (attraction.name or '') %}{{ destination }}中央公园
-                                {% elif 'Waterfront Promenade' in (attraction.name or '') %}{{ destination }}滨水步道
-                                {% elif 'Art Museum' in (attraction.name or '') %}{{ destination }}艺术博物馆
-                                {% elif 'Local Market' in (attraction.name or '') %}{{ destination }}当地市场
-                                {% else %}{{ attraction.name or '当地景点' }}
-                                {% endif %}
+                                {% if attraction.name and 'Observatory Deck' in attraction.name %}{{ destination }}观景台
+                                {% elif attraction.name and 'Historic Center' in attraction.name %}{{ destination }}历史中心
+                                {% elif attraction.name and 'Central Park' in attraction.name %}{{ destination }}中央公园
+                                {% elif attraction.name and 'Waterfront Promenade' in attraction.name %}{{ destination }}滨水步道
+                                {% elif attraction.name and 'Art Museum' in attraction.name %}{{ destination }}艺术博物馆
+                                {% elif attraction.name and 'Local Market' in attraction.name %}{{ destination }}当地市场
+                                {% elif attraction.name and attraction.name.strip() %}{{ attraction.name }}
+                                {% else %}当地景点{% endif %}
                             </h4>
                             
                             <p>
@@ -1287,11 +1287,11 @@
                         
                         <div class="card-content">
                             <h4>
-                                {% if 'Local Specialty Restaurant' in (restaurant.name or '') %}当地特色餐厅
-                                {% elif 'Street Food Market' in (restaurant.name or '') %}街头美食市场
-                                {% elif 'Fine Dining Experience' in (restaurant.name or '') %}高端餐饮体验
-                                {% else %}{{ restaurant.name or '当地餐厅' }}
-                                {% endif %}
+                                {% if restaurant.name and 'Local Specialty Restaurant' in restaurant.name %}当地特色餐厅
+                                {% elif restaurant.name and 'Street Food Market' in restaurant.name %}街头美食市场
+                                {% elif restaurant.name and 'Fine Dining Experience' in restaurant.name %}高端餐饮体验
+                                {% elif restaurant.name and restaurant.name.strip() %}{{ restaurant.name }}
+                                {% else %}当地餐厅{% endif %}
                             </h4>
                             
                             <p><strong>菜系：</strong> 
