@@ -116,6 +116,17 @@ class ReportGeneratorAgent:
             local_info = travel_data.get('local_info', {})
             ai_insights = travel_data.get('ai_insights', {})
             
+            # Process weather data - ensure we always have weather information to display
+            weather_forecast = weather_data.get('forecast', [])
+            weather_info = {
+                'forecast': weather_forecast,
+                'source': weather_data.get('source', 'Unknown'),
+                'success': weather_data.get('success', False),
+                'error': weather_data.get('error', ''),
+                'note': weather_data.get('note', ''),
+                'current_weather': weather_data.get('current_weather', {})
+            }
+            
             report_data = {
                 # Header Information
                 'title': f'Travel Plan for {destination}',
@@ -127,7 +138,8 @@ class ReportGeneratorAgent:
                 
                 # Destination Overview
                 'destination_info': destination_info,
-                'weather_forecast': weather_data.get('forecast', []),
+                'weather_forecast': weather_forecast,
+                'weather_info': weather_info,
                 
                 # Travel Plans
                 'travel_plans': travel_plans,
@@ -472,9 +484,9 @@ class ReportGeneratorAgent:
             </div>
 
             <!-- Weather Forecast -->
-            {% if weather_forecast %}
             <div class="section">
                 <h2>🌤️ 天气预报</h2>
+                {% if weather_forecast and weather_forecast|length > 0 %}
                 <div class="weather-forecast">
                     {% for day in weather_forecast[:7] %}
                     <div class="weather-day">
@@ -492,8 +504,38 @@ class ReportGeneratorAgent:
                     </div>
                     {% endfor %}
                 </div>
+                {% if weather_info and weather_info.source %}
+                <div style="margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 5px; font-size: 0.9em;">
+                    <strong>数据来源:</strong> {{ weather_info.source }}
+                    {% if weather_info.note %}
+                    <br><strong>说明:</strong> {{ weather_info.note }}
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div style="padding: 20px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; margin: 20px 0;">
+                    <h4 style="color: #856404; margin-top: 0;">⚠️ 天气信息暂时无法获取</h4>
+                    {% if weather_info and weather_info.error %}
+                    <p style="color: #856404; margin-bottom: 10px;">
+                        <strong>错误信息:</strong> {{ weather_info.error }}
+                    </p>
+                    {% endif %}
+                    {% if weather_info and weather_info.note %}
+                    <p style="color: #856404; margin-bottom: 10px;">
+                        {{ weather_info.note }}
+                    </p>
+                    {% endif %}
+                    {% if weather_info and weather_info.suggestion %}
+                    <p style="color: #856404; margin-bottom: 0;">
+                        <strong>建议:</strong> {{ weather_info.suggestion }}
+                    </p>
+                    {% endif %}
+                    <p style="color: #856404; margin-bottom: 0;">
+                        <strong>建议:</strong> 请在出行前通过天气应用或网站查看最新天气预报，以便做好相应准备。
+                    </p>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
 
             <!-- Top Attractions -->
             {% if attractions %}
