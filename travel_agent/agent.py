@@ -9,7 +9,8 @@ import asyncio
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams, StdioServerParameters
 # Add the current directory to sys.path to enable absolute imports
 import sys
 import os
@@ -34,7 +35,7 @@ class SafeMCPManager:
     def create_mcp_toolset(self, name: str, command: str, args: List[str], 
                           env_vars: Optional[dict] = None, 
                           tool_filter: Optional[List[str]] = None,
-                          timeout: int = 10) -> Optional[MCPToolset]:
+                          timeout: int = 30) -> Optional[MCPToolset]:
         """Create MCP toolset with comprehensive error handling"""
         try:
             logger.info(f"🔄 Attempting to configure MCP toolset: {name}")
@@ -46,7 +47,7 @@ class SafeMCPManager:
                     [command] + args + ['--help'], 
                     capture_output=True, 
                     text=True, 
-                    timeout=timeout
+                    timeout=max(timeout, 120)
                 )
                 if test_result.returncode != 0:
                     logger.warning(f"⚠️  Command test failed for {name}: {test_result.stderr}")
@@ -61,11 +62,16 @@ class SafeMCPManager:
                 self.failed_connections.append(f"{name}: {str(e)}")
                 return None
             
-            # Create connection parameters
-            connection_params = StdioServerParameters(
+            # Create connection parameters with timeout
+            server_params = StdioServerParameters(
                 command=command,
                 args=args,
                 env=env_vars or {}
+            )
+            
+            connection_params = StdioConnectionParams(
+                server_params=server_params,
+                timeout=float(timeout)
             )
             
             # Create toolset
@@ -107,15 +113,17 @@ def create_robust_travel_agent():
             'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai'],
             'env_vars': {},
             'tool_filter': ['get_current_time', 'convert_time'],
-            'priority': 'high'  # Essential for date parsing
+            'priority': 'high',  # Essential for date parsing
+            'timeout': 30
         },
         {
             'name': 'Fetch Server',
-            'command': 'uvx', 
+            'command': 'uvx',
             'args': ['mcp-server-fetch'],
             'env_vars': {},
             'tool_filter': ['fetch'],
-            'priority': 'medium'
+            'priority': 'medium',
+            'timeout': 30
         },
         {
             'name': 'Memory Server',
@@ -123,7 +131,8 @@ def create_robust_travel_agent():
             'args': ['-y', '@modelcontextprotocol/server-memory'],
             'env_vars': {},
             'tool_filter': ['create_entities', 'search_nodes', 'open_nodes'],
-            'priority': 'low'
+            'priority': 'low',
+            'timeout': 60
         }
     ]
     
@@ -137,7 +146,7 @@ def create_robust_travel_agent():
             'env_vars': {'AMAP_API_KEY': amap_api_key},
             'tool_filter': [
                 'maps_text_search',
-                'maps_around_search', 
+                'maps_around_search',
                 'maps_geo',
                 'maps_regeocode',
                 'maps_search_detail',
@@ -145,7 +154,8 @@ def create_robust_travel_agent():
                 'maps_direction_driving',
                 'maps_direction_walking'
             ],
-            'priority': 'high'  # Important for location services
+            'priority': 'high',  # Important for location services
+            'timeout': 60
         })
     else:
         logger.warning("⚠️  Amap Maps API key not found, skipping Amap MCP server")
@@ -157,7 +167,8 @@ def create_robust_travel_agent():
             command=config['command'],
             args=config['args'],
             env_vars=config['env_vars'],
-            tool_filter=config['tool_filter']
+            tool_filter=config['tool_filter'],
+            timeout=config.get('timeout', 30)
         )
         if toolset:
             mcp_tools.append(toolset)
