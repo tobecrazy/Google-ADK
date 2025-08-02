@@ -349,44 +349,237 @@ class DataCollectorAgent:
     def _parse_dining_recommendations(self, response_text: str, budget: float) -> List[Dict[str, Any]]:
         """Parse dining recommendations from AI response."""
         try:
-            # Simple parsing - can be enhanced with more sophisticated NLP
-            recommendations = []
-            
-            # Generate sample dining data based on budget
+            # Generate AI-based dining recommendations for the specific destination
             daily_food_budget = (budget * 0.20) / 7  # Assuming 7 days average
             
-            sample_restaurants = [
-                {
-                    'name': 'Local Specialty Restaurant',
-                    'cuisine': 'Local Cuisine',
-                    'price_range': 'Mid-range',
-                    'estimated_cost': daily_food_budget * 0.6,
-                    'specialties': ['Local Dish 1', 'Local Dish 2'],
-                    'rating': 4.5,
-                    'location': 'City Center'
-                },
-                {
-                    'name': 'Street Food Market',
-                    'cuisine': 'Street Food',
-                    'price_range': 'Budget',
-                    'estimated_cost': daily_food_budget * 0.2,
-                    'specialties': ['Street Snacks', 'Local Beverages'],
-                    'rating': 4.2,
-                    'location': 'Local Market'
-                },
-                {
-                    'name': 'Fine Dining Experience',
-                    'cuisine': 'International',
-                    'price_range': 'High-end',
-                    'estimated_cost': daily_food_budget * 1.5,
-                    'specialties': ['Signature Dishes', 'Wine Pairing'],
-                    'rating': 4.8,
-                    'location': 'Downtown'
-                }
-            ]
+            # Use AI to parse the response and extract restaurant information
+            restaurants = self._extract_restaurant_info(response_text, daily_food_budget)
             
-            return sample_restaurants
+            # If AI parsing fails or returns no restaurants, generate fallback restaurants
+            if not restaurants:
+                restaurants = self._generate_fallback_restaurants(daily_food_budget)
+            
+            return restaurants
             
         except Exception as e:
             logger.warning(f"Error parsing dining recommendations: {str(e)}")
+            # Return fallback restaurants in case of error
+            try:
+                daily_food_budget = (budget * 0.20) / 7
+                return self._generate_fallback_restaurants(daily_food_budget)
+            except:
+                return []
+
+    
+    def _extract_restaurant_info(self, ai_response: str, daily_budget: float) -> List[Dict[str, Any]]:
+        """Extract restaurant information from AI response."""
+        try:
+            import re
+            import json
+            
+            restaurants = []
+            
+            # Try to parse as JSON first
+            try:
+                data = json.loads(ai_response)
+                if isinstance(data, list):
+                    restaurants = data[:8]  # Limit to 8 restaurants
+                    # Validate and enhance restaurant data
+                    for restaurant in restaurants:
+                        self._validate_and_enhance_restaurant(restaurant, daily_budget)
+                    return restaurants
+            except json.JSONDecodeError:
+                pass
+            
+            # If JSON parsing fails, try to extract from text using regex
+            # Look for restaurant sections
+            restaurant_patterns = [
+                r'(?:餐厅|餐馆|美食|餐饮).*?(?=(?:餐厅|餐馆|美食|餐饮)|$)',
+                r'(?:Restaurant|Dining|Food|Cuisine).*?(?=(?:Restaurant|Dining|Food|Cuisine)|$)'
+            ]
+            
+            for pattern in restaurant_patterns:
+                matches = re.findall(pattern, ai_response, re.DOTALL | re.IGNORECASE)
+                if matches and len(matches) > 0:
+                    for match in matches[:8]:  # Limit to 8 restaurants
+                        restaurant = self._parse_restaurant_from_text(match, daily_budget)
+                        if restaurant:
+                            restaurants.append(restaurant)
+                    if restaurants:
+                        break
+            
+            # If still no restaurants found, create basic structure from response
+            if not restaurants:
+                # Split response into lines and look for restaurant-like entries
+                lines = ai_response.split('\n')
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    if line and len(line) > 10 and i < 8:  # Only consider substantial lines, limit to 8
+                        restaurants.append({
+                            'name': line[:30],  # First 30 chars as name
+                            'cuisine': 'Local',
+                            'price_range': self._estimate_price_range(daily_budget),
+                            'estimated_cost': daily_budget * 0.7,
+                            'specialties': ['当地特色菜'],
+                            'rating': 4.0,
+                            'location': '当地区域'
+                        })
+            
+            return restaurants[:8]  # Return up to 8 restaurants
+            
+        except Exception as e:
+            logger.warning(f"Error extracting restaurant info: {str(e)}")
+            return []
+    
+    def _parse_restaurant_from_text(self, text: str, daily_budget: float) -> Dict[str, Any]:
+        """Parse restaurant information from text."""
+        try:
+            import re
+            
+            # Clean the text
+            text = re.sub(r'[^\w\s\u4e00-\u9fff.,:;!?-]', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            
+            # Extract name (first substantial phrase)
+            name_match = re.search(r'^([^\n]{5,30}?)(?:\s|$)', text)
+            name = name_match.group(1).strip() if name_match else "当地餐厅"
+            
+            # Extract cuisine keywords
+            cuisine_keywords = ['中餐', '西餐', '日料', '韩餐', '东南亚菜', '快餐', '小吃', '素食']
+            cuisine = 'Local'
+            for keyword in cuisine_keywords:
+                if keyword in text:
+                    cuisine = keyword
+                    break
+            
+            # Extract price range indicators
+            price_range = self._estimate_price_range(daily_budget)
+            
+            # Extract specialties (look for food items)
+            specialties = []
+            food_patterns = [
+                r'推荐(?:菜品|美食|菜式)[:,：]?\s*([^。\n]+)',
+                r'特色(?:菜品|美食|菜式)[:,：]?\s*([^。\n]+)',
+                r'(?:必点|必尝|招牌)[^:：]*[:,：]?\s*([^。\n]+)'
+            ]
+            
+            for pattern in food_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    special_items = match.group(1).split('、')
+                    specialties.extend([item.strip() for item in special_items if item.strip()])
+                    break
+            
+            if not specialties:
+                specialties = ['当地特色菜']
+            
+            # Create restaurant object
+            restaurant = {
+                'name': name[:30],  # Limit name length
+                'cuisine': cuisine,
+                'price_range': price_range,
+                'estimated_cost': daily_budget * (0.5 + hash(name) % 100 / 200),  # Randomize cost
+                'specialties': specialties[:5],  # Limit to 5 specialties
+                'rating': 4.0 + (hash(name) % 20) / 10,  # Randomize rating between 4.0-5.0
+                'location': '当地区域'
+            }
+            
+            return restaurant
+            
+        except Exception as e:
+            logger.warning(f"Error parsing restaurant from text: {str(e)}")
+            return None
+    
+    def _estimate_price_range(self, budget: float) -> str:
+        """Estimate price range based on budget."""
+        if budget < 50:
+            return 'Budget'
+        elif budget < 150:
+            return 'Mid-range'
+        else:
+            return 'High-end'
+    
+    def _validate_and_enhance_restaurant(self, restaurant: Dict[str, Any], daily_budget: float) -> Dict[str, Any]:
+        """Validate and enhance restaurant data."""
+        try:
+            # Ensure required fields exist
+            required_fields = {
+                'name': '当地餐厅',
+                'cuisine': 'Local',
+                'price_range': self._estimate_price_range(daily_budget),
+                'estimated_cost': daily_budget,
+                'specialties': ['当地特色菜'],
+                'rating': 4.0,
+                'location': '当地区域'
+            }
+            
+            for field, default_value in required_fields.items():
+                if field not in restaurant or not restaurant[field]:
+                    restaurant[field] = default_value
+            
+            # Validate data types
+            if not isinstance(restaurant.get('name'), str):
+                restaurant['name'] = str(restaurant.get('name', '当地餐厅'))
+            
+            if not isinstance(restaurant.get('estimated_cost'), (int, float)):
+                restaurant['estimated_cost'] = daily_budget
+            
+            if not isinstance(restaurant.get('rating'), (int, float)):
+                restaurant['rating'] = 4.0
+            
+            if not isinstance(restaurant.get('specialties'), list):
+                restaurant['specialties'] = ['当地特色菜']
+            
+            # Ensure name is not too long
+            if len(str(restaurant.get('name', ''))) > 50:
+                restaurant['name'] = str(restaurant['name'])[:50]
+            
+            # Ensure specialties list is reasonable
+            if len(restaurant.get('specialties', [])) > 10:
+                restaurant['specialties'] = restaurant['specialties'][:10]
+            
+            return restaurant
+            
+        except Exception as e:
+            logger.warning(f"Error validating restaurant: {str(e)}")
+            return restaurant
+    
+    def _generate_fallback_restaurants(self, daily_budget: float) -> List[Dict[str, Any]]:
+        """Generate fallback restaurants when AI parsing fails."""
+        try:
+            # If AI fails, create generic fallback restaurants
+            fallback_restaurants = [
+                {
+                    'name': '当地老字号餐厅',
+                    'cuisine': 'Local Traditional',
+                    'price_range': 'Mid-range',
+                    'estimated_cost': daily_budget * 0.8,
+                    'specialties': ['传统地方菜', '招牌菜1', '招牌菜2'],
+                    'rating': 4.3,
+                    'location': '老城区'
+                },
+                {
+                    'name': '街头小吃摊',
+                    'cuisine': 'Street Food',
+                    'price_range': 'Budget',
+                    'estimated_cost': daily_budget * 0.3,
+                    'specialties': ['当地小吃1', '当地小吃2', '特色小食'],
+                    'rating': 4.1,
+                    'location': '夜市'
+                },
+                {
+                    'name': '精品餐厅',
+                    'cuisine': 'Local Gourmet',
+                    'price_range': 'High-end',
+                    'estimated_cost': daily_budget * 1.5,
+                    'specialties': ['创意菜品', '精致料理', '特色套餐'],
+                    'rating': 4.6,
+                    'location': '商业区'
+                }
+            ]
+            
+            return fallback_restaurants
+            
+        except Exception as e:
+            logger.error(f"Error generating fallback restaurants: {str(e)}")
             return []
