@@ -1,6 +1,6 @@
 """
 Restaurant Service
-Provides real restaurant recommendations using Amap Maps API and other sources
+Provides comprehensive restaurant recommendations using multiple data sources
 """
 
 import os
@@ -12,17 +12,27 @@ from dotenv import load_dotenv
 import json
 import re
 
+# Add the parent directory to sys.path to enable absolute imports
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from travel_agent.utils.restaurant_aggregator import RestaurantDataAggregator
+
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 logger = logging.getLogger(__name__)
 
 class RestaurantService:
-    """Service for real restaurant data using Amap and other sources."""
+    """Enhanced service for comprehensive restaurant data from multiple sources."""
     
     def __init__(self, use_mcp_tool: Optional[Callable] = None):
-        """Initialize the restaurant service with MCP tool access."""
+        """Initialize the restaurant service with enhanced capabilities."""
         self.use_mcp_tool = use_mcp_tool
+        
+        # Initialize the restaurant data aggregator
+        self.restaurant_aggregator = RestaurantDataAggregator(use_mcp_tool=use_mcp_tool)
         
         # Initialize Gemini for data enhancement
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -35,7 +45,7 @@ class RestaurantService:
             '川菜', '粤菜', '湘菜', '东北菜', '海鲜'
         ]
         
-        logger.info("Restaurant Service initialized with Amap integration")
+        logger.info("Enhanced Restaurant Service initialized with multi-source aggregation")
     
     def get_restaurants(
         self,
@@ -44,66 +54,229 @@ class RestaurantService:
         location_coords: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Get real restaurant recommendations for the destination.
+        Get comprehensive restaurant recommendations from multiple sources.
         
         Args:
             destination: Target destination
-            budget: Daily food budget
+            budget: Total travel budget (daily food budget will be calculated)
             location_coords: Optional coordinates in "longitude,latitude" format
             
         Returns:
-            List of restaurant recommendations with real data
+            List of comprehensive restaurant recommendations
         """
         try:
-            logger.info(f"Getting real restaurant data for {destination}")
+            logger.info(f"Getting comprehensive restaurant data for {destination}")
             
-            # Step 1: Get destination coordinates if not provided
-            if not location_coords:
-                location_coords = self._get_destination_coordinates(destination)
-            
-            # Step 2: Search for restaurants using multiple strategies
-            restaurants = []
-            
-            if self.use_mcp_tool and location_coords:
-                # Strategy 1: Location-based search around destination
-                location_restaurants = self._search_restaurants_by_location(
-                    location_coords, destination
-                )
-                restaurants.extend(location_restaurants)
-                
-                # Strategy 2: Category-based searches
-                category_restaurants = self._search_restaurants_by_categories(
-                    destination, location_coords
-                )
-                restaurants.extend(category_restaurants)
-                
-                # Strategy 3: Keyword-based searches
-                keyword_restaurants = self._search_restaurants_by_keywords(
-                    destination
-                )
-                restaurants.extend(keyword_restaurants)
-            
-            # Step 3: Remove duplicates and get detailed information
-            unique_restaurants = self._deduplicate_restaurants(restaurants)
-            detailed_restaurants = self._get_detailed_restaurant_info(unique_restaurants)
-            
-            # Step 4: Enhance with AI-generated content
-            enhanced_restaurants = self._enhance_restaurant_data(
-                detailed_restaurants, destination, budget
+            # Use the restaurant aggregator to get comprehensive data
+            restaurants = self.restaurant_aggregator.get_comprehensive_restaurant_data(
+                destination=destination,
+                budget=budget,
+                location_coords=location_coords,
+                max_results=20
             )
             
-            # Step 5: Filter and rank restaurants
-            final_restaurants = self._filter_and_rank_restaurants(
-                enhanced_restaurants, budget
-            )
+            # Additional post-processing if needed
+            processed_restaurants = self._post_process_restaurants(restaurants, destination, budget)
             
-            logger.info(f"Successfully retrieved {len(final_restaurants)} real restaurants")
-            return final_restaurants[:15]  # Return top 15 restaurants
+            logger.info(f"Successfully retrieved {len(processed_restaurants)} comprehensive restaurants")
+            return processed_restaurants[:15]  # Return top 15 restaurants
             
         except Exception as e:
-            logger.error(f"Error getting real restaurant {str(e)}")
-            # Fallback to AI-generated restaurants
-            return self._get_fallback_restaurants(destination, budget)
+            logger.error(f"Error getting comprehensive restaurant data: {str(e)}")
+            # Fallback to emergency restaurants
+            return self._get_emergency_fallback_restaurants(destination, budget)
+    
+    def _post_process_restaurants(
+        self,
+        restaurants: List[Dict[str, Any]],
+        destination: str,
+        budget: float
+    ) -> List[Dict[str, Any]]:
+        """Post-process restaurants with additional enhancements."""
+        try:
+            daily_food_budget = budget * 0.20 / 7
+            
+            for restaurant in restaurants:
+                # Add service-specific metadata
+                restaurant['service_processed'] = True
+                restaurant['processed_at'] = datetime.now().isoformat()
+                
+                # Ensure Chinese descriptions for better user experience
+                if not restaurant.get('description') or len(restaurant.get('description', '')) < 10:
+                    restaurant['description'] = self._generate_chinese_description(
+                        restaurant, destination
+                    )
+                
+                # Add dining recommendations
+                restaurant['dining_recommendations'] = self._generate_dining_recommendations(
+                    restaurant, daily_food_budget
+                )
+                
+                # Add accessibility info
+                restaurant['accessibility'] = self._assess_accessibility(restaurant)
+            
+            return restaurants
+            
+        except Exception as e:
+            logger.error(f"Error post-processing restaurants: {str(e)}")
+            return restaurants
+    
+    def _generate_chinese_description(self, restaurant: Dict[str, Any], destination: str) -> str:
+        """Generate a Chinese description for the restaurant."""
+        try:
+            name = restaurant.get('name', '餐厅')
+            cuisine = restaurant.get('cuisine', 'Local')
+            price_range = restaurant.get('price_range', 'Mid-range')
+            
+            # Map English terms to Chinese
+            cuisine_map = {
+                'Local': '当地菜',
+                'Local Traditional': '传统菜',
+                'Street Food': '街头小食',
+                'Fine Dining': '精致料理',
+                'International': '国际料理',
+                'Chinese': '中餐',
+                'Cafe': '咖啡厅'
+            }
+            
+            price_map = {
+                'Budget': '经济实惠',
+                'Mid-range': '中等价位',
+                'High-end': '高端消费',
+                'Luxury': '奢华体验'
+            }
+            
+            chinese_cuisine = cuisine_map.get(cuisine, cuisine)
+            chinese_price = price_map.get(price_range, price_range)
+            
+            return f"{name}是{destination}的一家{chinese_cuisine}餐厅，{chinese_price}，提供优质的用餐体验和地道的美食。"
+            
+        except Exception as e:
+            logger.warning(f"Error generating Chinese description: {str(e)}")
+            return f"{destination}当地餐厅，提供美味的料理和舒适的用餐环境。"
+    
+    def _generate_dining_recommendations(self, restaurant: Dict[str, Any], daily_budget: float) -> List[str]:
+        """Generate dining recommendations for the restaurant."""
+        try:
+            recommendations = []
+            
+            # Budget-based recommendations
+            cost = restaurant.get('estimated_cost', daily_budget)
+            if cost <= daily_budget * 0.7:
+                recommendations.append("性价比很高，适合日常用餐")
+            elif cost <= daily_budget * 1.2:
+                recommendations.append("价格合理，值得一试")
+            else:
+                recommendations.append("价格较高，适合特殊场合")
+            
+            # Cuisine-based recommendations
+            cuisine = restaurant.get('cuisine', '')
+            if 'Local' in cuisine or '当地' in cuisine:
+                recommendations.append("体验当地特色，不容错过")
+            elif 'Street' in cuisine or '小吃' in cuisine:
+                recommendations.append("街头美食，感受当地文化")
+            elif 'Fine' in cuisine or '精致' in cuisine:
+                recommendations.append("精致用餐，适合商务或约会")
+            
+            # Rating-based recommendations
+            rating = restaurant.get('rating', 0)
+            if rating >= 4.5:
+                recommendations.append("评分很高，强烈推荐")
+            elif rating >= 4.0:
+                recommendations.append("口碑不错，值得推荐")
+            
+            # Source-based recommendations
+            source = restaurant.get('source', '')
+            if source == 'amap':
+                recommendations.append("真实数据，信息可靠")
+            elif source == 'tripadvisor':
+                recommendations.append("国际游客推荐")
+            elif source == 'food_blog':
+                recommendations.append("美食博主推荐")
+            
+            return recommendations[:3]  # Return top 3 recommendations
+            
+        except Exception as e:
+            logger.warning(f"Error generating dining recommendations: {str(e)}")
+            return ["推荐尝试当地特色菜"]
+    
+    def _assess_accessibility(self, restaurant: Dict[str, Any]) -> Dict[str, str]:
+        """Assess restaurant accessibility information."""
+        try:
+            accessibility = {
+                'location_accessibility': '位置便利',
+                'price_accessibility': '价格适中',
+                'service_accessibility': '服务友好'
+            }
+            
+            # Assess based on available data
+            if restaurant.get('address'):
+                if any(keyword in restaurant['address'] for keyword in ['市中心', '商业区', '步行街']):
+                    accessibility['location_accessibility'] = '位置优越，交通便利'
+                elif any(keyword in restaurant['address'] for keyword in ['郊区', '远离']):
+                    accessibility['location_accessibility'] = '位置较远，建议打车'
+            
+            price_range = restaurant.get('price_range', '')
+            if price_range in ['Budget', '经济实惠']:
+                accessibility['price_accessibility'] = '价格亲民，学生友好'
+            elif price_range in ['High-end', '高端消费']:
+                accessibility['price_accessibility'] = '价格较高，适合特殊场合'
+            
+            if restaurant.get('tel'):
+                accessibility['service_accessibility'] = '可电话预订，服务便民'
+            
+            return accessibility
+            
+        except Exception as e:
+            logger.warning(f"Error assessing accessibility: {str(e)}")
+            return {'general': '一般可达性'}
+    
+    def _get_emergency_fallback_restaurants(self, destination: str, budget: float) -> List[Dict[str, Any]]:
+        """Get emergency fallback restaurants when all systems fail."""
+        try:
+            daily_food_budget = budget * 0.20 / 7
+            
+            emergency_restaurants = [
+                {
+                    'name': f'{destination}当地餐厅',
+                    'description': f'{destination}传统餐厅，提供地道的当地菜肴和温馨的用餐环境。',
+                    'cuisine': 'Local Traditional',
+                    'price_range': 'Mid-range',
+                    'estimated_cost': daily_food_budget * 0.8,
+                    'rating': 4.2,
+                    'specialties': ['当地特色菜', '传统料理'],
+                    'location': destination,
+                    'source': 'emergency_fallback',
+                    'data_source': 'service_emergency',
+                    'final_score': 60.0,
+                    'budget_friendly': True,
+                    'dining_recommendations': ['体验当地特色', '价格合理'],
+                    'accessibility': {'general': '位置便利，价格适中'}
+                },
+                {
+                    'name': f'{destination}小食街',
+                    'description': f'{destination}著名小食聚集地，各种当地小吃和街头美食的天堂。',
+                    'cuisine': 'Street Food',
+                    'price_range': 'Budget',
+                    'estimated_cost': daily_food_budget * 0.4,
+                    'rating': 4.0,
+                    'specialties': ['街头小吃', '当地小食'],
+                    'location': destination,
+                    'source': 'emergency_fallback',
+                    'data_source': 'service_emergency',
+                    'final_score': 55.0,
+                    'budget_friendly': True,
+                    'dining_recommendations': ['性价比很高', '感受当地文化'],
+                    'accessibility': {'general': '价格亲民，位置热闹'}
+                }
+            ]
+            
+            logger.warning(f"Using emergency fallback: generated {len(emergency_restaurants)} restaurants")
+            return emergency_restaurants
+            
+        except Exception as e:
+            logger.error(f"Error generating emergency fallback restaurants: {str(e)}")
+            return []
     
     def _get_destination_coordinates(self, destination: str) -> Optional[str]:
         """Get coordinates for the destination using Amap geocoding."""
