@@ -25,6 +25,7 @@ from travel_agent.services.weather_service import WeatherService
 from travel_agent.services.attraction_service import AttractionService
 from travel_agent.services.transport_service import TransportService
 from travel_agent.services.accommodation_service import AccommodationService
+from travel_agent.services.restaurant_service import RestaurantService
 from travel_agent.utils.web_scraper import WebScraper
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class DataCollectorAgent:
         self.attraction_service = AttractionService()
         self.transport_service = TransportService()
         self.accommodation_service = AccommodationService()
+        self.restaurant_service = RestaurantService(use_mcp_tool=use_mcp_tool)
         self.web_scraper = WebScraper()
         
         # Store MCP tool for potential use in other services
@@ -47,7 +49,7 @@ class DataCollectorAgent:
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         
-        logger.info("Data Collector Agent initialized with MCP integration")
+        logger.info("Data Collector Agent initialized with MCP integration and real restaurant data")
     
     def collect_travel_data(
         self,
@@ -197,29 +199,63 @@ class DataCollectorAgent:
             }
     
     def _get_dining_data(self, destination: str, budget: float) -> List[Dict[str, Any]]:
-        """Get dining and restaurant recommendations."""
+        """Get dining and restaurant recommendations using real data from Amap."""
         try:
+            logger.info(f"Getting real restaurant data for {destination} with budget {budget}")
+            
+            # Use the new restaurant service to get real data from Amap
+            restaurants = self.restaurant_service.get_restaurants(
+                destination=destination,
+                budget=budget
+            )
+            
+            if restaurants and len(restaurants) > 0:
+                logger.info(f"Successfully retrieved {len(restaurants)} real restaurants from Amap")
+                return restaurants
+            else:
+                logger.warning("No restaurants found from Amap, falling back to AI-generated data")
+                # Fallback to AI-generated data if Amap fails
+                return self._get_ai_fallback_dining_data(destination, budget)
+            
+        except Exception as e:
+            logger.error(f"Error getting real restaurant {str(e)}")
+            # Fallback to AI-generated data
+            return self._get_ai_fallback_dining_data(destination, budget)
+    
+    def _get_ai_fallback_dining_data(self, destination: str, budget: float) -> List[Dict[str, Any]]:
+        """Get AI-generated dining data as fallback when real data fails."""
+        try:
+            logger.info(f"Using AI fallback for restaurant data in {destination}")
+            
             # Use AI to generate dining recommendations
             prompt = f"""
-            Recommend restaurants and local cuisine for {destination}.
-            Consider different budget levels and include:
-            1. Local specialties and must-try dishes
-            2. Restaurant recommendations (budget, mid-range, high-end)
-            3. Street food options
-            4. Dietary restrictions accommodations
-            5. Estimated meal costs
+            为{destination}推荐餐厅和当地美食，考虑不同预算水平：
+            预算: {budget}元
             
-            Provide 8-10 recommendations with variety.
+            请提供8-10个餐厅推荐，包括：
+            1. 当地特色菜和必尝美食
+            2. 不同价位的餐厅（经济、中档、高端）
+            3. 街头小吃选择
+            4. 素食等特殊饮食需求
+            5. 预估用餐费用
+            
+            请用中文回答，提供多样化的选择。
             """
             
             response = self.model.generate_content(prompt)
             
             # Parse and structure the response
             dining_data = self._parse_dining_recommendations(response.text, budget)
+            
+            # Add fallback indicator
+            for restaurant in dining_data:
+                restaurant['data_source'] = 'ai_fallback'
+                restaurant['note'] = '基于AI生成的推荐，建议出行前核实具体信息'
+            
             return dining_data
             
         except Exception as e:
-            logger.warning(f"Error getting dining data: {str(e)}")
+            logger.error(f"Error getting AI fallback dining data: {str(e)}")
             return []
     
     def _get_local_info(self, destination: str) -> Dict[str, Any]:
