@@ -27,12 +27,13 @@ logger = logging.getLogger(__name__)
 class RestaurantService:
     """Enhanced service for comprehensive restaurant data from multiple sources."""
     
-    def __init__(self, use_mcp_tool: Optional[Callable] = None):
+    def __init__(self):
         """Initialize the restaurant service with enhanced capabilities."""
-        self.use_mcp_tool = use_mcp_tool
+        # NOTE: Google ADK automatically provides MCP tools to the LLM agent
+        # The LLM agent can call MCP tools directly without a wrapper function
         
         # Initialize the restaurant data aggregator
-        self.restaurant_aggregator = RestaurantDataAggregator(use_mcp_tool=use_mcp_tool)
+        self.restaurant_aggregator = RestaurantDataAggregator()
         
         # Initialize Gemini for data enhancement
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -45,7 +46,7 @@ class RestaurantService:
             '川菜', '粤菜', '湘菜', '东北菜', '海鲜'
         ]
         
-        logger.info("Enhanced Restaurant Service initialized with multi-source aggregation")
+        logger.info("Enhanced Restaurant Service initialized (Google ADK handles MCP integration automatically)")
     
     def get_restaurants(
         self,

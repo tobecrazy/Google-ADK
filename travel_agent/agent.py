@@ -399,19 +399,11 @@ def create_robust_travel_agent():
     ) -> Dict[str, Any]:
         """Travel planning tool with MCP integration."""
         try:
-            # Create MCP tool function for the travel agent
-            def use_mcp_tool(server_name: str, tool_name: str, arguments: dict):
-                # Find the appropriate MCP toolset
-                for toolset in mcp_tools:
-                    try:
-                        # Use the toolset to call the tool
-                        return toolset.call_tool(tool_name, arguments)
-                    except Exception as e:
-                        logger.warning(f"Failed to call {tool_name} on toolset: {e}")
-                        continue
-                return None
+            # NOTE: Google ADK MCPToolset doesn't support direct tool calling
+            # MCP tools are automatically available to the LLM agent through the toolsets
+            # The agent can call MCP tools directly without a wrapper function
             
-            # Create travel agent with MCP tool access
+            # Create travel agent without MCP tool wrapper (not needed with Google ADK)
             try:
                 from travel_agent.main import TravelAgent
                 from travel_agent.utils.date_parser import parse_date, get_current_date_info
@@ -419,7 +411,16 @@ def create_robust_travel_agent():
                 from main import TravelAgent
                 from utils.date_parser import parse_date, get_current_date_info
             
-            agent = TravelAgent(use_mcp_tool=use_mcp_tool)
+            # Create agent with MCP tool function for weather service integration
+            # Note: In Google ADK, we need to create a wrapper function that can call MCP tools
+            def mcp_tool_wrapper(server_name: str, tool_name: str, arguments: dict):
+                """Wrapper function to call MCP tools - this would be implemented by Google ADK"""
+                # This is a placeholder - in actual Google ADK implementation,
+                # this would call the MCP tools through the agent's toolset
+                logger.warning(f"MCP tool call attempted: {server_name}.{tool_name} - not implemented in this context")
+                return {"error": "MCP tool not available in this context"}
+            
+            agent = TravelAgent(use_mcp_tool=mcp_tool_wrapper)
             
             # Parse dates and plan travel
             current_info = get_current_date_info()
@@ -457,7 +458,8 @@ def create_robust_travel_agent():
                 'details': str(e)
             }
     
-    # Add the MCP-integrated travel planning tool
+    # Add the MCP toolsets and travel planning tool
+    # Google ADK automatically makes MCP tools available to the LLM agent
     all_tools = mcp_tools + [create_travel_planning_tool_with_mcp]
     
     # Create enhanced instruction based on available tools

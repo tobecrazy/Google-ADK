@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 class RestaurantDataAggregator:
     """Aggregates restaurant data from multiple sources with intelligent processing."""
     
-    def __init__(self, use_mcp_tool: Optional[Callable] = None):
+    def __init__(self):
         """Initialize the restaurant data aggregator."""
-        self.use_mcp_tool = use_mcp_tool
+        # NOTE: Google ADK automatically provides MCP tools to the LLM agent
+        # The LLM agent can call MCP tools directly without a wrapper function
         self.web_scraper = RestaurantScraper()
         
         # Cache for storing recent results
@@ -43,7 +44,7 @@ class RestaurantDataAggregator:
             'ai_fallback': 0.3     # Lowest weight for AI-generated content
         }
         
-        logger.info("Restaurant Data Aggregator initialized")
+        logger.info("Restaurant Data Aggregator initialized (Google ADK handles MCP integration automatically)")
     
     def get_comprehensive_restaurant_data(
         self,
@@ -116,32 +117,11 @@ class RestaurantDataAggregator:
     ) -> List[Dict[str, Any]]:
         """Get restaurant data from Amap API."""
         try:
-            if not self.use_mcp_tool:
-                logger.info("MCP tool not available, skipping Amap restaurants")
-                return []
-            
-            restaurants = []
-            
-            # Get destination coordinates if not provided
-            if not location_coords:
-                location_coords = self._get_destination_coordinates(destination)
-            
-            if location_coords:
-                # Search around location
-                location_restaurants = self._search_amap_by_location(location_coords, destination)
-                restaurants.extend(location_restaurants)
-                
-                # Search by keywords
-                keyword_restaurants = self._search_amap_by_keywords(destination)
-                restaurants.extend(keyword_restaurants)
-            
-            # Mark source and enhance data
-            for restaurant in restaurants:
-                restaurant['source'] = 'amap'
-                restaurant['data_source'] = 'amap_api'
-                restaurant['reliability_score'] = 1.0
-            
-            return self._deduplicate_amap_restaurants(restaurants)
+            # NOTE: Google ADK automatically provides MCP tools to the LLM agent
+            # Since we can't directly call MCP tools from this service layer,
+            # we'll skip Amap integration and rely on web scraping and AI fallback
+            logger.info("Skipping Amap restaurants - Google ADK MCP tools are available to LLM agent only")
+            return []
             
         except Exception as e:
             logger.error(f"Error getting Amap restaurants: {str(e)}")
@@ -149,107 +129,24 @@ class RestaurantDataAggregator:
     
     def _get_destination_coordinates(self, destination: str) -> Optional[str]:
         """Get coordinates for the destination using Amap geocoding."""
-        try:
-            if not self.use_mcp_tool:
-                return None
-                
-            result = self.use_mcp_tool(
-                'amap-maps',
-                'maps_geo',
-                {'address': destination}
-            )
-            
-            if result and isinstance(result, dict):
-                geocodes = result.get('geocodes', [])
-                if geocodes and len(geocodes) > 0:
-                    location = geocodes[0].get('location', '')
-                    if location:
-                        return location
-            
-            return None
-            
-        except Exception as e:
-            logger.warning(f"Error getting coordinates: {str(e)}")
-            return None
+        # NOTE: Google ADK MCP tools are only available to the LLM agent
+        # This service layer cannot directly call MCP tools
+        logger.info("Skipping coordinate lookup - Google ADK MCP tools are available to LLM agent only")
+        return None
     
     def _search_amap_by_location(self, location_coords: str, destination: str) -> List[Dict[str, Any]]:
         """Search Amap restaurants by location."""
-        try:
-            restaurants = []
-            
-            search_configs = [
-                {'keywords': '餐厅', 'radius': '1000'},
-                {'keywords': '美食', 'radius': '1500'},
-                {'keywords': '小吃', 'radius': '800'},
-            ]
-            
-            for config in search_configs:
-                try:
-                    result = self.use_mcp_tool(
-                        'amap-maps',
-                        'maps_around_search',
-                        {
-                            'location': location_coords,
-                            'keywords': config['keywords'],
-                            'radius': config['radius']
-                        }
-                    )
-                    
-                    if result and isinstance(result, dict):
-                        pois = result.get('pois', [])
-                        for poi in pois[:8]:  # Limit per search
-                            restaurant = self._parse_amap_poi(poi, 'location_search')
-                            if restaurant:
-                                restaurants.append(restaurant)
-                                
-                except Exception as e:
-                    logger.warning(f"Error in Amap location search: {str(e)}")
-                    continue
-            
-            return restaurants
-            
-        except Exception as e:
-            logger.error(f"Error searching Amap by location: {str(e)}")
-            return []
+        # NOTE: Google ADK MCP tools are only available to the LLM agent
+        # This service layer cannot directly call MCP tools
+        logger.info("Skipping Amap location search - Google ADK MCP tools are available to LLM agent only")
+        return []
     
     def _search_amap_by_keywords(self, destination: str) -> List[Dict[str, Any]]:
         """Search Amap restaurants by keywords."""
-        try:
-            restaurants = []
-            
-            keywords = [
-                f'{destination} 餐厅',
-                f'{destination} 美食',
-                f'{destination} 特色菜'
-            ]
-            
-            for keyword in keywords:
-                try:
-                    result = self.use_mcp_tool(
-                        'amap-maps',
-                        'maps_text_search',
-                        {
-                            'keywords': keyword,
-                            'city': destination
-                        }
-                    )
-                    
-                    if result and isinstance(result, dict):
-                        pois = result.get('pois', [])
-                        for poi in pois[:5]:  # Limit per keyword
-                            restaurant = self._parse_amap_poi(poi, 'keyword_search')
-                            if restaurant:
-                                restaurants.append(restaurant)
-                                
-                except Exception as e:
-                    logger.warning(f"Error in Amap keyword search: {str(e)}")
-                    continue
-            
-            return restaurants
-            
-        except Exception as e:
-            logger.error(f"Error searching Amap by keywords: {str(e)}")
-            return []
+        # NOTE: Google ADK MCP tools are only available to the LLM agent
+        # This service layer cannot directly call MCP tools
+        logger.info("Skipping Amap keyword search - Google ADK MCP tools are available to LLM agent only")
+        return []
     
     def _parse_amap_poi(self, poi: Dict[str, Any], search_type: str) -> Optional[Dict[str, Any]]:
         """Parse Amap POI data into restaurant format."""

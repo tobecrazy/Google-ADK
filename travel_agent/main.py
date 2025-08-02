@@ -44,21 +44,20 @@ class TravelAgent:
     """Main Travel AI Agent class that orchestrates the travel planning process."""
     
     def __init__(self, use_mcp_tool=None):
-        """Initialize the Travel Agent with all sub-agents."""
+        """Initialize the Travel Agent with all sub-agents and optional MCP tool function."""
+        # Pass MCP tool function to agents that need it
+        self.use_mcp_tool = use_mcp_tool
         self.data_collector = DataCollectorAgent(use_mcp_tool=use_mcp_tool)
         self.travel_planner = TravelPlannerAgent()
         self.report_generator = ReportGeneratorAgent()
         
-        # Initialize weather service with MCP tool support
+        # Initialize weather service with MCP tool parameter
         self.weather_service = WeatherService(use_mcp_tool=use_mcp_tool)
-        
-        # Store MCP tool function for use in data collection
-        self.use_mcp_tool = use_mcp_tool
         
         # Ensure output directory exists
         os.makedirs("output", exist_ok=True)
         
-        logger.info("Travel AI Agent initialized successfully with MCP integration")
+        logger.info(f"Travel AI Agent initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
     def plan_travel(
         self,

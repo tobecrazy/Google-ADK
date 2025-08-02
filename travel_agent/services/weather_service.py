@@ -1,6 +1,6 @@
 """
 Weather Service
-Integrates with AMap weather API via MCP to provide real weather forecast data
+Provides weather forecast data for travel planning
 """
 
 import logging
@@ -10,21 +10,12 @@ from typing import Dict, Any, List, Optional, Callable
 logger = logging.getLogger(__name__)
 
 class WeatherService:
-    """Service for weather data integration using AMap weather API via MCP."""
+    """Service for weather data integration."""
     
-    def __init__(self, use_mcp_tool: Optional[Callable] = None):
-        """
-        Initialize the weather service with AMap MCP integration.
-        
-        Args:
-            use_mcp_tool: MCP tool function for accessing amap-maps weather service
-        """
+    def __init__(self, use_mcp_tool=None):
+        """Initialize the weather service with optional MCP tool function."""
         self.use_mcp_tool = use_mcp_tool
-        
-        if not self.use_mcp_tool:
-            logger.warning("No MCP tool provided. Weather service will return errors for all requests.")
-        else:
-            logger.info("Weather Service initialized with AMap MCP integration")
+        logger.info(f"Weather Service initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
     def get_weather_forecast(
         self,
@@ -33,7 +24,7 @@ class WeatherService:
         duration: int
     ) -> Dict[str, Any]:
         """
-        Get weather forecast for travel dates using AMap API via MCP.
+        Get weather forecast for travel dates using real weather data from AMap API.
         
         Args:
             destination: Destination city name
@@ -41,41 +32,43 @@ class WeatherService:
             duration: Number of days
             
         Returns:
-            Dict containing weather forecast data or error information
+            Dict containing weather forecast data
         """
         try:
-            logger.info(f"Getting weather forecast for {destination} from {start_date} for {duration} days")
+            logger.info(f"Getting real weather forecast for {destination} from {start_date} for {duration} days")
             
-            if not self.use_mcp_tool:
-                return self._create_error_response(
-                    "Weather service not available - no MCP tool configured",
-                    destination
-                )
+            # Try to get real weather data from AMap API via MCP tool
+            if self.use_mcp_tool:
+                logger.info(f"Using MCP tool to get real weather data for {destination}")
+                amap_weather = self._get_amap_weather(destination)
+                
+                if amap_weather['success']:
+                    # Convert real weather data to multi-day forecast
+                    forecast = self._convert_amap_to_forecast(amap_weather, start_date, duration)
+                    
+                    if forecast:
+                        logger.info(f"Successfully generated {len(forecast)} day forecast from real weather data")
+                        return {
+                            'success': True,
+                            'destination': destination,
+                            'forecast': forecast,
+                            'current_weather': amap_weather.get('current_weather', {}),
+                            'source': 'AMap Real Weather Data',
+                            'note': 'Weather forecast based on current real weather conditions from AMap API.',
+                            'raw_data': amap_weather.get('raw_response')
+                        }
+                    else:
+                        logger.warning(f"Failed to convert AMap weather data to forecast for {destination}")
+                else:
+                    logger.warning(f"Failed to get real weather data for {destination}: {amap_weather.get('error', 'Unknown error')}")
+            else:
+                logger.warning("MCP tool not available for weather service")
             
-            # Get weather data from AMap via MCP
-            amap_weather = self._get_amap_weather(destination)
-            
-            if not amap_weather.get('success', False):
-                error_msg = amap_weather.get('error', 'Unknown error from AMap weather API')
-                return self._create_error_response(error_msg, destination)
-            
-            # Convert AMap weather data to forecast format
-            forecast_data = self._convert_amap_to_forecast(
-                amap_weather, 
-                start_date, 
-                duration
+            # Fallback: Return error response indicating real weather is unavailable
+            return self._create_error_response(
+                "Real weather data is currently unavailable. MCP weather service may be offline or API key missing.",
+                destination
             )
-            
-            return {
-                'success': True,
-                'destination': destination,
-                'current_weather': amap_weather.get('current_weather', {}),
-                'forecast': forecast_data,
-                'source': 'AMap Weather API via MCP',
-                'query_used': destination,
-                'start_date': start_date,
-                'duration': duration
-            }
             
         except Exception as e:
             logger.error(f"Error getting weather forecast for {destination}: {str(e)}")
@@ -83,6 +76,27 @@ class WeatherService:
                 f"Weather service error: {str(e)}",
                 destination
             )
+    
+    
+    def _translate_condition_to_chinese(self, condition: str) -> str:
+        """Translate weather conditions from English to Chinese."""
+        translation_map = {
+            'Sunny': '晴天',
+            'Clear': '晴朗',
+            'Partly Cloudy': '局部多云',
+            'Cloudy': '多云',
+            'Overcast': '阴天',
+            'Rainy': '雨天',
+            'Light Rain': '小雨',
+            'Heavy Rain': '大雨',
+            'Thunderstorm': '雷雨',
+            'Foggy': '雾天',
+            'Windy': '大风',
+            'Snow': '雪天',
+            'Drizzle': '毛毛雨'
+        }
+        
+        return translation_map.get(condition, condition)
     
     def _get_amap_weather(self, city: str) -> Dict[str, Any]:
         """
@@ -97,7 +111,14 @@ class WeatherService:
         try:
             logger.info(f"Requesting weather data for city: {city}")
             
+            if not self.use_mcp_tool:
+                return {
+                    'success': False,
+                    'error': 'MCP tool function not available'
+                }
+            
             # Use MCP tool to get weather from amap-maps-mcp-server
+            # Note: In Google ADK, MCP tools are called directly through the use_mcp_tool function
             result = self.use_mcp_tool(
                 server_name="amap-maps",
                 tool_name="maps_weather",
