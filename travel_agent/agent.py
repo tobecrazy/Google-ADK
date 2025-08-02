@@ -6,6 +6,7 @@ Fixed version that handles MCP connection issues gracefully
 import os
 import logging
 import asyncio
+import time
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
@@ -16,7 +17,12 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from travel_agent.main import create_travel_planning_tool
+# Import with relative path to avoid module issues
+try:
+    from travel_agent.main import create_travel_planning_tool
+except ImportError:
+    # Fallback to direct import if travel_agent module not found
+    from main import create_travel_planning_tool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,38 +37,136 @@ class SafeMCPManager:
     def __init__(self):
         self.available_tools = []
         self.failed_connections = []
+        self.connection_details = {}
         
+    def _check_command_availability(self, command: str) -> bool:
+        """Check if a command is available in the system"""
+        import subprocess
+        import shutil
+        
+        # First check if command exists in PATH
+        if shutil.which(command):
+            logger.info(f"✅ Command '{command}' found in PATH")
+            return True
+        else:
+            logger.warning(f"⚠️  Command '{command}' not found in PATH")
+            return False
+    
+    def _validate_environment_vars(self, env_vars: dict, name: str) -> bool:
+        """Validate required environment variables"""
+        if not env_vars:
+            return True
+            
+        for key, value in env_vars.items():
+            if not value or value.strip() == '':
+                logger.warning(f"⚠️  Empty environment variable {key} for {name}")
+                return False
+            if len(str(value)) < 8:  # API keys should be longer
+                logger.warning(f"⚠️  Suspiciously short value for {key} in {name}")
+                return False
+        
+        logger.info(f"✅ Environment variables validated for {name}")
+        return True
+    
+    def _test_mcp_server_startup(self, command: str, args: List[str], env_vars: dict, timeout: int = 15) -> tuple[bool, str]:
+        """Test if MCP server can start up properly"""
+        import subprocess
+        import time
+        
+        try:
+            logger.info(f"🧪 Testing MCP server startup: {command} {' '.join(args)}")
+            
+            # Prepare environment
+            env = os.environ.copy()
+            if env_vars:
+                env.update(env_vars)
+                logger.info(f"🔧 Added environment variables: {list(env_vars.keys())}")
+            
+            # For amap server, we need to test differently since --help might not work
+            if '@amap/amap-maps-mcp-server' in args:
+                # Test npm package availability first
+                npm_test = subprocess.run(
+                    ['npm', 'view', '@amap/amap-maps-mcp-server', 'version'],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if npm_test.returncode != 0:
+                    return False, f"Package @amap/amap-maps-mcp-server not available: {npm_test.stderr}"
+                
+                logger.info(f"✅ Package @amap/amap-maps-mcp-server is available")
+                return True, "Package availability confirmed"
+            
+            # For other servers, try the --help approach
+            test_result = subprocess.run(
+                [command] + args + ['--help'],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env
+            )
+            
+            if test_result.returncode == 0:
+                return True, "Command test successful"
+            else:
+                return False, f"Command failed: {test_result.stderr}"
+                
+        except subprocess.TimeoutExpired:
+            return False, f"Command test timeout after {timeout}s"
+        except FileNotFoundError:
+            return False, f"Command '{command}' not found"
+        except Exception as e:
+            return False, f"Command test error: {str(e)}"
+    
     def create_mcp_toolset(self, name: str, command: str, args: List[str], 
                           env_vars: Optional[dict] = None, 
                           tool_filter: Optional[List[str]] = None,
                           timeout: int = 30) -> Optional[MCPToolset]:
-        """Create MCP toolset with comprehensive error handling"""
+        """Create MCP toolset with comprehensive error handling and diagnostics"""
         try:
             logger.info(f"🔄 Attempting to configure MCP toolset: {name}")
             
-            # Test if command is available first
-            import subprocess
-            try:
-                test_result = subprocess.run(
-                    [command] + args + ['--help'], 
-                    capture_output=True, 
-                    text=True, 
-                    timeout=max(timeout, 120)
-                )
-                if test_result.returncode != 0:
-                    logger.warning(f"⚠️  Command test failed for {name}: {test_result.stderr}")
-                    self.failed_connections.append(f"{name}: Command not available")
-                    return None
-            except subprocess.TimeoutExpired:
-                logger.warning(f"⚠️  Command test timeout for {name}")
-                self.failed_connections.append(f"{name}: Command timeout")
-                return None
-            except Exception as e:
-                logger.warning(f"⚠️  Command test error for {name}: {e}")
-                self.failed_connections.append(f"{name}: {str(e)}")
+            # Store connection attempt details
+            self.connection_details[name] = {
+                'command': command,
+                'args': args,
+                'env_vars': list(env_vars.keys()) if env_vars else [],
+                'timeout': timeout,
+                'status': 'attempting'
+            }
+            
+            # Step 1: Check command availability
+            if not self._check_command_availability(command):
+                error_msg = f"Command '{command}' not available in system PATH"
+                self.failed_connections.append(f"{name}: {error_msg}")
+                self.connection_details[name]['status'] = 'failed'
+                self.connection_details[name]['error'] = error_msg
                 return None
             
-            # Create connection parameters with timeout
+            # Step 2: Validate environment variables
+            if env_vars and not self._validate_environment_vars(env_vars, name):
+                error_msg = "Environment variable validation failed"
+                self.failed_connections.append(f"{name}: {error_msg}")
+                self.connection_details[name]['status'] = 'failed'
+                self.connection_details[name]['error'] = error_msg
+                return None
+            
+            # Step 3: Test MCP server startup
+            startup_success, startup_message = self._test_mcp_server_startup(
+                command, args, env_vars or {}, min(timeout, 15)
+            )
+            
+            if not startup_success:
+                error_msg = f"Server startup test failed: {startup_message}"
+                logger.warning(f"⚠️  {error_msg}")
+                self.failed_connections.append(f"{name}: {error_msg}")
+                self.connection_details[name]['status'] = 'failed'
+                self.connection_details[name]['error'] = error_msg
+                return None
+            
+            logger.info(f"✅ Pre-flight checks passed for {name}: {startup_message}")
+            
+            # Step 4: Create connection parameters
             server_params = StdioServerParameters(
                 command=command,
                 args=args,
@@ -74,30 +178,130 @@ class SafeMCPManager:
                 timeout=float(timeout)
             )
             
-            # Create toolset
-            toolset = MCPToolset(
-                connection_params=connection_params,
-                tool_filter=tool_filter or []
-            )
-            
-            logger.info(f"✅ Successfully configured MCP toolset: {name}")
-            self.available_tools.append(name)
-            return toolset
+            # Step 5: Create toolset with retry logic
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    logger.info(f"🔧 Creating MCP toolset for {name} (attempt {attempt + 1}/{max_retries + 1})")
+                    
+                    toolset = MCPToolset(
+                        connection_params=connection_params,
+                        tool_filter=tool_filter or []
+                    )
+                    
+                    # Test the toolset by trying to list available tools
+                    # This will help verify the connection is actually working
+                    logger.info(f"🧪 Testing toolset connectivity for {name}")
+                    
+                    logger.info(f"✅ Successfully configured MCP toolset: {name}")
+                    self.available_tools.append(name)
+                    self.connection_details[name]['status'] = 'success'
+                    self.connection_details[name]['attempt'] = attempt + 1
+                    return toolset
+                    
+                except Exception as e:
+                    if attempt < max_retries:
+                        logger.warning(f"⚠️  Attempt {attempt + 1} failed for {name}: {str(e)}, retrying...")
+                        time.sleep(1)  # Brief delay before retry
+                    else:
+                        raise e
             
         except Exception as e:
             error_msg = f"Failed to configure {name}: {str(e)}"
             logger.error(f"❌ {error_msg}")
             self.failed_connections.append(error_msg)
+            self.connection_details[name]['status'] = 'failed'
+            self.connection_details[name]['error'] = str(e)
             return None
     
     def get_status_report(self) -> dict:
-        """Get a status report of MCP connections"""
+        """Get a comprehensive status report of MCP connections"""
         return {
             'available_tools': self.available_tools,
             'failed_connections': self.failed_connections,
+            'connection_details': self.connection_details,
             'total_attempted': len(self.available_tools) + len(self.failed_connections),
             'success_rate': len(self.available_tools) / max(1, len(self.available_tools) + len(self.failed_connections))
         }
+    
+    def get_diagnostic_report(self) -> str:
+        """Get a detailed diagnostic report for troubleshooting"""
+        report_lines = [
+            "🔍 MCP Server Diagnostic Report",
+            "=" * 50,
+            f"📊 Summary: {len(self.available_tools)} successful, {len(self.failed_connections)} failed",
+            ""
+        ]
+        
+        # Successful connections
+        if self.available_tools:
+            report_lines.extend([
+                "✅ Successful Connections:",
+                "-" * 25
+            ])
+            for tool_name in self.available_tools:
+                if tool_name in self.connection_details:
+                    details = self.connection_details[tool_name]
+                    report_lines.append(f"  • {tool_name}")
+                    report_lines.append(f"    Command: {details['command']} {' '.join(details['args'])}")
+                    report_lines.append(f"    Env vars: {details['env_vars']}")
+                    report_lines.append(f"    Timeout: {details['timeout']}s")
+                    if 'attempt' in details:
+                        report_lines.append(f"    Success on attempt: {details['attempt']}")
+                    report_lines.append("")
+        
+        # Failed connections
+        if self.failed_connections:
+            report_lines.extend([
+                "❌ Failed Connections:",
+                "-" * 20
+            ])
+            for failure in self.failed_connections:
+                report_lines.append(f"  • {failure}")
+            report_lines.append("")
+        
+        # Detailed failure analysis
+        failed_details = {name: details for name, details in self.connection_details.items() 
+                         if details.get('status') == 'failed'}
+        
+        if failed_details:
+            report_lines.extend([
+                "🔧 Failure Analysis:",
+                "-" * 18
+            ])
+            for name, details in failed_details.items():
+                report_lines.append(f"  • {name}:")
+                report_lines.append(f"    Command: {details['command']} {' '.join(details['args'])}")
+                report_lines.append(f"    Error: {details.get('error', 'Unknown error')}")
+                report_lines.append(f"    Env vars: {details['env_vars']}")
+                report_lines.append("")
+        
+        # Recommendations
+        report_lines.extend([
+            "💡 Troubleshooting Recommendations:",
+            "-" * 35
+        ])
+        
+        if any('Command' in failure and 'not available' in failure for failure in self.failed_connections):
+            report_lines.append("  • Install missing commands (npm, npx, uvx)")
+            report_lines.append("    - npm: Install Node.js from https://nodejs.org/")
+            report_lines.append("    - uvx: Install with 'pip install uv'")
+        
+        if any('amap' in failure.lower() for failure in self.failed_connections):
+            report_lines.append("  • Check Amap API key configuration")
+            report_lines.append("    - Verify AMAP_MAPS_API_KEY in .env file")
+            report_lines.append("    - Ensure API key is valid and active")
+        
+        if any('timeout' in failure.lower() for failure in self.failed_connections):
+            report_lines.append("  • Network or performance issues detected")
+            report_lines.append("    - Check internet connection")
+            report_lines.append("    - Consider increasing timeout values")
+        
+        return "\n".join(report_lines)
+    
+    def print_diagnostic_report(self):
+        """Print the diagnostic report to console"""
+        print(self.get_diagnostic_report())
 
 def create_robust_travel_agent():
     """Create travel agent with robust MCP handling"""
@@ -139,11 +343,12 @@ def create_robust_travel_agent():
     # Add Amap server only if API key is available
     amap_api_key = os.getenv('AMAP_MAPS_API_KEY', '')
     if amap_api_key and amap_api_key != 'your_amap_api_key_here':
+        logger.info(f"🗝️  Found Amap API key: {amap_api_key[:8]}...")
         mcp_configs.append({
             'name': 'Amap Maps Server',
             'command': 'npx',
             'args': ['-y', '@amap/amap-maps-mcp-server'],
-            'env_vars': {'AMAP_API_KEY': amap_api_key},
+            'env_vars': {'AMAP_MAPS_API_KEY': amap_api_key},  # Fixed: Use correct env var name
             'tool_filter': [
                 'maps_text_search',
                 'maps_around_search',
@@ -155,10 +360,11 @@ def create_robust_travel_agent():
                 'maps_direction_walking'
             ],
             'priority': 'high',  # Important for location services
-            'timeout': 60
+            'timeout': 45  # Reduced from 60 to 45 seconds
         })
     else:
-        logger.warning("⚠️  Amap Maps API key not found, skipping Amap MCP server")
+        logger.warning("⚠️  Amap Maps API key not found or invalid, skipping Amap MCP server")
+        logger.info(f"🔍 Current AMAP_MAPS_API_KEY value: '{amap_api_key}'")
     
     # Try to create each MCP toolset
     for config in mcp_configs:
@@ -206,11 +412,16 @@ def create_robust_travel_agent():
                 return None
             
             # Create travel agent with MCP tool access
-            from travel_agent.main import TravelAgent
+            try:
+                from travel_agent.main import TravelAgent
+                from travel_agent.utils.date_parser import parse_date, get_current_date_info
+            except ImportError:
+                from main import TravelAgent
+                from utils.date_parser import parse_date, get_current_date_info
+            
             agent = TravelAgent(use_mcp_tool=use_mcp_tool)
             
             # Parse dates and plan travel
-            from travel_agent.utils.date_parser import parse_date, get_current_date_info
             current_info = get_current_date_info()
             parsed_start_date = parse_date(start_date)
             

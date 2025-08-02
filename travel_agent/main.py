@@ -16,11 +16,19 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Add the parent directory to sys.path to enable absolute imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from travel_agent.agents.travel_planner import TravelPlannerAgent
-from travel_agent.agents.data_collector import DataCollectorAgent
-from travel_agent.agents.report_generator import ReportGeneratorAgent
-from travel_agent.services.weather_service import WeatherService
-from travel_agent.utils.date_parser import parse_date, get_current_date_info
+# Import with fallback for module path issues
+try:
+    from travel_agent.agents.travel_planner import TravelPlannerAgent
+    from travel_agent.agents.data_collector import DataCollectorAgent
+    from travel_agent.agents.report_generator import ReportGeneratorAgent
+    from travel_agent.services.weather_service import WeatherService
+    from travel_agent.utils.date_parser import parse_date, get_current_date_info
+except ImportError:
+    from agents.travel_planner import TravelPlannerAgent
+    from agents.data_collector import DataCollectorAgent
+    from agents.report_generator import ReportGeneratorAgent
+    from services.weather_service import WeatherService
+    from utils.date_parser import parse_date, get_current_date_info
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
