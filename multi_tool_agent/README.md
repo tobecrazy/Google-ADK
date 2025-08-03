@@ -1,44 +1,63 @@
-# AI Travel Planner Agent
+# Wikipedia Article Extractor and Summarizer Agent
 
-This agent helps you automatically plan your trip based on your destination, duration, and budget. It generates a detailed, day-by-day itinerary in HTML format, complete with descriptions and images of attractions.
+This agent helps you extract and summarize articles from Wikipedia links. It can also provide current time information for different timezones. The agent uses MCP (Model Context Protocol) tools to fetch content and provide accurate information.
 
 ## Features
 
-*   **Automated Itinerary Generation:** Creates a full travel plan from simple inputs.
-*   **Smart Transportation & Accommodation:** Suggests flights/trains and lodging that fit your budget.
-*   **Intelligent Attraction Planning:** Discovers popular attractions, gathers detailed information, and organizes them into a logical daily schedule.
-*   **Rich HTML Output:** Produces a visually appealing HTML file with images and descriptions for each point of interest.
+*   **Wikipedia Article Extraction:** Extracts content from Wikipedia articles using provided links.
+*   **Intelligent Summarization:** Summarizes extracted articles in a few concise sentences.
+*   **Time Information:** Provides current time information for different timezones.
+*   **MCP Integration:** Uses Google ADK's native MCPToolset integration for tool management.
 
 ## How to Use
 
-1.  **Run the Agent Server:**
+1.  **Configure Environment Variables:**
+    Create a `.env` file in the `multi_tool_agent/` directory with the following variables:
+    ```bash
+    GOOGLE_GENAI_USE_VERTEXAI=FALSE
+    GOOGLE_API_KEY=your_google_api_key_here
+    AMAP_API_KEY=your_amap_api_key_here
+    ```
+
+2.  **Run the Agent Server:**
     ```bash
     mcp run -p 8000 multi_tool_agent.agent:app
     ```
 
-2.  **Send a Request:**
-    Make a POST request to the `/plan_trip` endpoint with your travel details.
+3.  **Interact with the Agent:**
+    Send messages to the agent with:
+    *   Wikipedia links for article extraction and summarization
+    *   Requests for current time in different timezones
 
-    **Example using `curl`:**
-    ```bash
-    curl -X 'POST' \
-      'http://127.0.0.1:8000/plan_trip' \
-      -H 'accept: application/json' \
-      -H 'Content-Type: application/json' \
-      -d '{
-      "destination": "Paris",
-      "duration_days": 5,
-      "budget_usd": 2000
-    }'
-    ```
-
-3.  **Get Your Plan:**
-    The agent will process your request and save the generated itinerary as an HTML file (e.g., `trip_plan_for_Paris.html`) in the project directory.
+    **Example interactions:**
+    *   "Extract and summarize this article: https://en.wikipedia.org/wiki/Artificial_intelligence"
+    *   "What time is it in New York?"
 
 ## Technology Stack
 
 *   **Google ADK:** The core framework for building the agent.
-*   **FastAPI:** For creating the web server and API endpoints.
-*   **Google Search & Maps Tools:** Used for finding transportation, accommodation, and points of interest.
-*   **Firecrawl:** Used for scraping detailed information and images from the web.
+*   **MCP Tools:** 
+    *   HTTP Stream Server for Wikipedia extraction
+    *   Time Server (mcp_server_time) for time information
+*   **Gemini 2.0 Flash:** The LLM model used for processing and summarization.
 
+## MCP Tool Configuration
+
+The agent is configured with two MCP tool sources:
+
+1.  **HTTP Stream Server:**
+    *   URL: `https://mcp.amap.com/mcp?key=${AMAP_API_KEY}`
+    *   Provides Wikipedia extraction capabilities
+    *   Requires AMAP_API_KEY environment variable
+
+2.  **Stdio Server (Time Server):**
+    *   Command: `uvx mcp-server-time --local-timezone=Asia/Shanghai`
+    *   Provides time information capabilities
+
+## Environment Variables
+
+The following environment variables are required:
+
+*   **GOOGLE_API_KEY:** Your Google Gemini API key for the LLM model
+*   **AMAP_API_KEY:** Your AMap API key for location and mapping services
+*   **GOOGLE_GENAI_USE_VERTEXAI:** Set to FALSE to use Google AI Studio instead of Vertex AI

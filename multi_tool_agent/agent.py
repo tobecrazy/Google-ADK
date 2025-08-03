@@ -1,135 +1,77 @@
-import datetime
 import os
-import requests
-from zoneinfo import ZoneInfo
-from google.adk.agents import Agent
-from pypinyin import pinyin, Style
+from typing import Any, List
 
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+from dotenv import load_dotenv
+from google.adk.agents.llm_agent import LlmAgent
 
-def get_weather(city: str) -> dict:
-    """Retrieves the current weather report for a specified city.
+from google.adk.tools.mcp_tool import StdioConnectionParams
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.adk.tools.mcp_tool.mcp_toolset import StdioServerParameters
+from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPServerParams
+from google.genai import types
+from rich import print
 
-    Args:
-        city (str): The name of the city for which to retrieve the weather report.
+# Load environment variables from the .env file in the same directory
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-    Returns:
-        dict: status and result or error msg.
-    """
-    if not OPENWEATHER_API_KEY:
-        return {
-            "status": "error",
-            "error_message": "OpenWeather API key is not set.",
-        }
-
-    # Convert Chinese city names to Pinyin with capitalization
-    city_query = city
-    if any('\u4e00' <= char <= '\u9fff' for char in city):
-        pinyin_parts = pinyin(city, style=Style.NORMAL)
-        # Join parts and capitalize the first letter of each part
-        city_query = "".join([part[0].capitalize() for part in pinyin_parts])
-
-    base_url = "https://api.openweathermap.org/data/2.5/weather?"
-    complete_url = f"{base_url}q={city_query}&appid={OPENWEATHER_API_KEY}&units=metric&lang=zh_cn"
+def create_mcp_toolsets() -> List[MCPToolset]:
+    """Creates MCP toolsets without connecting to them yet."""
+    toolsets = []
     
+    # Create HTTP stream server toolset (but don't connect yet)
     try:
-        response = requests.get(complete_url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        data = response.json()
-
-        if data["cod"] == 200:
-            main = data["main"]
-            weather = data["weather"][0]
-            temperature = main["temp"]
-            description = weather["description"]
-            
-            humidity = main["humidity"]
-            wind_speed = data["wind"]["speed"]
-            pressure = main["pressure"]
-            visibility = data.get("visibility", "N/A")
-            report = (
-                f"Current weather in {city}:\n"
-                f"- Condition: {description}\n"
-                f"- Temperature: {temperature:.1f}°C\n"
-                f"- Humidity: {humidity}%\n"
-                f"- Pressure: {pressure} hPa\n"
-                f"- Wind speed: {wind_speed} m/s\n"
-                f"- Visibility: {visibility if isinstance(visibility, str) else visibility/1000:.1f} km"
+        amap_api_key = os.getenv('AMAP_API_KEY')
+        if not amap_api_key:
+            print("Warning: AMAP_API_KEY not found in environment variables")
+            return toolsets
+        
+        http_toolset = MCPToolset(
+            connection_params=StreamableHTTPServerParams(
+                url=f"https://mcp.amap.com/mcp?key={amap_api_key}",
             )
-            return {"status": "success", "report": report}
-        else:
-            return {
-                "status": "error",
-                "error_message": f"Error fetching weather for '{city}' (queried as '{city_query}'): {data.get('message', 'Unknown error')}",
-            }
-    except requests.exceptions.RequestException as e:
-        return {
-            "status": "error",
-            "error_message": f"Network error or invalid city: {e}",
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error_message": f"An unexpected error occurred: {e}",
-        }
-
-
-def get_current_time(city: str) -> dict:
-    """Returns the current time in a specified city.
-
-    Args:
-        city (str): The name of the city for which to retrieve the current time.
-
-    Returns:
-        dict: status and result or error msg.
-    """
-    # Convert Chinese city names to Pinyin with capitalization
-    city_query = city
-    if any('\u4e00' <= char <= '\u9fff' for char in city):
-        pinyin_parts = pinyin(city, style=Style.NORMAL)
-        city_query = "".join([part[0].capitalize() for part in pinyin_parts])
-
-    # Common city to timezone mappings
-    city_timezones = {
-        "Shanghai": "Asia/Shanghai",
-        "Beijing": "Asia/Shanghai",
-        "NewYork": "America/New_York",
-        "London": "Europe/London",
-        "Tokyo": "Asia/Tokyo",
-        "Paris": "Europe/Paris",
-        "Berlin": "Europe/Berlin",
-        "Sydney": "Australia/Sydney"
-    }
-
-    tz_identifier = city_timezones.get(city_query)
-    if not tz_identifier:
-        return {
-            "status": "error",
-            "error_message": f"Sorry, I don't have timezone information for {city}."
-        }
-
-    try:
-        tz = ZoneInfo(tz_identifier)
-        now = datetime.datetime.now(tz)
-        report = (
-            f'The current time in {city} is {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}'
         )
-        return {"status": "success", "report": report}
+        toolsets.append(http_toolset)
+        print("HTTP MCP Toolset configured.")
     except Exception as e:
-        return {
-            "status": "error",
-            "error_message": f"Error getting time for {city}: {str(e)}"
-        }
+        print(f"Warning: Could not configure HTTP MCP toolset: {e}")
+    
+    # Create stdio server toolset (time server) - use uvx instead of python -m
+    try:
+        stdio_toolset = MCPToolset(
+            connection_params=StdioConnectionParams(
+                server_params=StdioServerParameters(
+                    command='uvx',
+                    args=['mcp-server-time', '--local-timezone=Asia/Shanghai'],
+                )
+            )
+        )
+        toolsets.append(stdio_toolset)
+        print("Stdio MCP Toolset configured.")
+    except Exception as e:
+        print(f"Warning: Could not configure stdio MCP toolset: {e}")
+    
+    return toolsets
 
+def create_agent() -> LlmAgent:
+    """Creates an ADK Agent with MCP toolsets (lazy loading)."""
+    toolsets = create_mcp_toolsets()
+    
+    root_agent = LlmAgent(
+        model="gemini-2.0-flash",
+        name="assistant",
+        instruction="""Help user extract and summarize the article from wikipedia link.
+        Use the following tools to extract wikipedia article and get current time.
+        
+        Available tools may include:
+        - Maps and location tools from AMap
+        - Time-related tools
+        
+        Once you retrieve any information, always summarize it clearly for the user.
+        """,
+        tools=toolsets,  # Pass toolsets directly - they will be loaded when needed
+    )
+    print(f"Agent created with {len(toolsets)} MCP toolsets.")
+    return root_agent
 
-root_agent = Agent(
-    name="weather_time_agent",
-    model="gemini-2.0-flash",
-    description=(
-        "Agent to answer questions about the time and weather in a city."
-    ),
-    instruction=(
-        "You are a helpful agent who can answer user questions about the time and weather in a city."
-    ),
-    tools=[get_weather, get_current_time],
-)
+# Create the root_agent without async issues during module loading
+root_agent = create_agent()
