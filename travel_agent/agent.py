@@ -1,17 +1,19 @@
 """
-Travel AI Agent - Google ADK Integration with MCP (Robust Version)
-Fixed version that handles MCP connection issues gracefully
+Travel AI Agent - Google ADK Integration with MCP (Optimized Version)
+Enhanced version with clean tool initialization and async MCP support
 """
 
 import os
 import logging
 import asyncio
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
+from dataclasses import dataclass
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams, StdioServerParameters
+
 # Add the current directory to sys.path to enable absolute imports
 import sys
 import os
@@ -21,8 +23,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from travel_agent.main import create_travel_planning_tool
 except ImportError:
-    # Fallback to direct import if travel_agent module not found
-    from main import create_travel_planning_tool
+    try:
+        # Fallback to direct import if travel_agent module not found
+        from main import create_travel_planning_tool
+    except ImportError:
+        # Create a minimal fallback function
+        def create_travel_planning_tool(destination: str, departure_location: str, start_date: str, duration: int, budget: float) -> dict:
+            return {
+                'success': False,
+                'error': 'Travel planning tool not available - import error',
+                'fallback': True
+            }
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,540 +42,618 @@ logger = logging.getLogger(__name__)
 # Load environment variables from travel_agent/.env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-class SafeMCPManager:
-    """Manages MCP connections with robust error handling and fallback mechanisms"""
+@dataclass
+class MCPServerConfig:
+    """MCP服务器配置数据类"""
+    name: str
+    command: str
+    args: List[str]
+    env_vars: Dict[str, str]
+    tool_filter: List[str]
+    priority: str
+    timeout: int
+    required: bool = False
+
+class MCPToolConfig:
+    """MCP工具配置管理器"""
+    
+    @staticmethod
+    def get_base_configs() -> List[MCPServerConfig]:
+        """获取基础MCP服务器配置"""
+        return [
+            MCPServerConfig(
+                name='Time Server',
+                command='uvx',
+                args=['mcp-server-time', '--local-timezone=Asia/Shanghai'],
+                env_vars={},
+                tool_filter=['get_current_time', 'convert_time'],
+                priority='high',
+                timeout=30,
+                required=True  # 时间服务是必需的
+            ),
+            MCPServerConfig(
+                name='Fetch Server',
+                command='uvx',
+                args=['mcp-server-fetch'],
+                env_vars={},
+                tool_filter=['fetch'],
+                priority='medium',
+                timeout=30,
+                required=False
+            ),
+            MCPServerConfig(
+                name='Memory Server',
+                command='npx',
+                args=['-y', '@modelcontextprotocol/server-memory'],
+                env_vars={},
+                tool_filter=['create_entities', 'search_nodes', 'open_nodes'],
+                priority='low',
+                timeout=60,
+                required=False
+            )
+        ]
+    
+    @staticmethod
+    def get_amap_config() -> Optional[MCPServerConfig]:
+        """获取Amap配置（如果API密钥可用）"""
+        amap_api_key = os.getenv('AMAP_MAPS_API_KEY', '')
+        if amap_api_key and amap_api_key != 'your_amap_api_key_here':
+            logger.info(f"🗝️  Found Amap API key: {amap_api_key[:8]}...")
+            return MCPServerConfig(
+                name='Amap Maps Server',
+                command='npx',
+                args=['-y', '@amap/amap-maps-mcp-server'],
+                env_vars={'AMAP_MAPS_API_KEY': amap_api_key},
+                tool_filter=[
+                    'maps_text_search', 'maps_around_search', 'maps_geo',
+                    'maps_regeocode', 'maps_search_detail', 'maps_weather',
+                    'maps_direction_driving', 'maps_direction_walking'
+                ],
+                priority='high',
+                timeout=45,
+                required=False
+            )
+        else:
+            logger.warning("⚠️  Amap Maps API key not found or invalid, skipping Amap MCP server")
+            logger.info(f"🔍 Current AMAP_MAPS_API_KEY value: '{amap_api_key}'")
+        return None
+
+class MCPToolRegistry:
+    """MCP工具注册表"""
     
     def __init__(self):
-        self.available_tools = []
-        self.failed_connections = []
-        self.connection_details = {}
-        
-    def _check_command_availability(self, command: str) -> bool:
-        """Check if a command is available in the system"""
-        import subprocess
-        import shutil
-        
-        # First check if command exists in PATH
-        if shutil.which(command):
-            logger.info(f"✅ Command '{command}' found in PATH")
-            return True
+        self.tools_by_name = {}
+        self.tools_by_server = {}
+        self.toolsets = []
+        self.initialization_status = {}
+    
+    async def register_toolsets_async(self, toolsets: List[MCPToolset]):
+        """异步注册工具集"""
+        for toolset in toolsets:
+            try:
+                self.toolsets.append(toolset)
+                
+                # 异步获取工具列表
+                tools = await toolset.get_tools()
+                server_name = self._identify_server_type(toolset)
+                
+                logger.info(f"📋 Registering {len(tools)} tools from {server_name}")
+                
+                for tool in tools:
+                    self.tools_by_name[tool.name] = tool
+                    
+                    # 根据服务器类型分组
+                    if server_name not in self.tools_by_server:
+                        self.tools_by_server[server_name] = []
+                    self.tools_by_server[server_name].append(tool)
+                
+                self.initialization_status[server_name] = {
+                    'status': 'success',
+                    'tool_count': len(tools),
+                    'tools': [tool.name for tool in tools]
+                }
+                
+            except Exception as e:
+                server_name = self._identify_server_type(toolset)
+                logger.error(f"❌ Failed to register tools from {server_name}: {str(e)}")
+                self.initialization_status[server_name] = {
+                    'status': 'failed',
+                    'error': str(e),
+                    'tool_count': 0
+                }
+    
+    async def call_tool_async(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """异步调用MCP工具"""
+        if tool_name in self.tools_by_name:
+            tool = self.tools_by_name[tool_name]
+            try:
+                logger.info(f"🔧 Calling MCP tool: {tool_name} with args: {arguments}")
+                result = await tool.run_async(args=arguments)
+                logger.info(f"✅ MCP tool {tool_name} executed successfully")
+                return {
+                    'success': True,
+                    'result': result,
+                    'tool_name': tool_name,
+                    'source': 'mcp_direct_call'
+                }
+            except Exception as e:
+                logger.error(f"❌ MCP tool {tool_name} failed: {str(e)}")
+                return {
+                    'success': False,
+                    'error': str(e),
+                    'tool_name': tool_name,
+                    'source': 'mcp_direct_call'
+                }
         else:
-            logger.warning(f"⚠️  Command '{command}' not found in PATH")
-            return False
-    
-    def _validate_environment_vars(self, env_vars: dict, name: str) -> bool:
-        """Validate required environment variables"""
-        if not env_vars:
-            return True
-            
-        for key, value in env_vars.items():
-            if not value or value.strip() == '':
-                logger.warning(f"⚠️  Empty environment variable {key} for {name}")
-                return False
-            if len(str(value)) < 8:  # API keys should be longer
-                logger.warning(f"⚠️  Suspiciously short value for {key} in {name}")
-                return False
-        
-        logger.info(f"✅ Environment variables validated for {name}")
-        return True
-    
-    def _test_mcp_server_startup(self, command: str, args: List[str], env_vars: dict, timeout: int = 15) -> tuple[bool, str]:
-        """Test if MCP server can start up properly"""
-        import subprocess
-        import time
-        
-        try:
-            logger.info(f"🧪 Testing MCP server startup: {command} {' '.join(args)}")
-            
-            # Prepare environment
-            env = os.environ.copy()
-            if env_vars:
-                env.update(env_vars)
-                logger.info(f"🔧 Added environment variables: {list(env_vars.keys())}")
-            
-            # For amap server, we need to test differently since --help might not work
-            if '@amap/amap-maps-mcp-server' in args:
-                # Test npm package availability first
-                npm_test = subprocess.run(
-                    ['npm', 'view', '@amap/amap-maps-mcp-server', 'version'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                if npm_test.returncode != 0:
-                    return False, f"Package @amap/amap-maps-mcp-server not available: {npm_test.stderr}"
-                
-                logger.info(f"✅ Package @amap/amap-maps-mcp-server is available")
-                return True, "Package availability confirmed"
-            
-            # For other servers, try the --help approach
-            test_result = subprocess.run(
-                [command] + args + ['--help'],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=env
-            )
-            
-            if test_result.returncode == 0:
-                return True, "Command test successful"
-            else:
-                return False, f"Command failed: {test_result.stderr}"
-                
-        except subprocess.TimeoutExpired:
-            return False, f"Command test timeout after {timeout}s"
-        except FileNotFoundError:
-            return False, f"Command '{command}' not found"
-        except Exception as e:
-            return False, f"Command test error: {str(e)}"
-    
-    def create_mcp_toolset(self, name: str, command: str, args: List[str], 
-                          env_vars: Optional[dict] = None, 
-                          tool_filter: Optional[List[str]] = None,
-                          timeout: int = 30) -> Optional[MCPToolset]:
-        """Create MCP toolset with comprehensive error handling and diagnostics"""
-        try:
-            logger.info(f"🔄 Attempting to configure MCP toolset: {name}")
-            
-            # Store connection attempt details
-            self.connection_details[name] = {
-                'command': command,
-                'args': args,
-                'env_vars': list(env_vars.keys()) if env_vars else [],
-                'timeout': timeout,
-                'status': 'attempting'
+            logger.warning(f"⚠️  Tool {tool_name} not found in registry")
+            return {
+                'success': False,
+                'error': f'Tool {tool_name} not found',
+                'available_tools': list(self.tools_by_name.keys()),
+                'source': 'mcp_direct_call'
             }
+    
+    def _identify_server_type(self, toolset: MCPToolset) -> str:
+        """识别服务器类型"""
+        try:
+            if hasattr(toolset, '_connection_params'):
+                server_params = getattr(toolset._connection_params, 'server_params', None)
+                if server_params and hasattr(server_params, 'args'):
+                    args_str = ' '.join(server_params.args)
+                    if '@amap/amap-maps-mcp-server' in args_str:
+                        return 'Amap Maps Server'
+                    elif 'mcp-server-time' in args_str:
+                        return 'Time Server'
+                    elif 'mcp-server-fetch' in args_str:
+                        return 'Fetch Server'
+                    elif 'server-memory' in args_str:
+                        return 'Memory Server'
+            return 'Unknown Server'
+        except Exception:
+            return 'Unknown Server'
+    
+    def get_status_report(self) -> Dict[str, Any]:
+        """获取工具注册状态报告"""
+        return {
+            'total_tools': len(self.tools_by_name),
+            'tools_by_server': {
+                server: len(tools) for server, tools in self.tools_by_server.items()
+            },
+            'available_tools': list(self.tools_by_name.keys()),
+            'initialization_status': self.initialization_status
+        }
+
+class AsyncMCPToolInitializer:
+    """异步MCP工具初始化器"""
+    
+    def __init__(self):
+        self.initialized_toolsets = []
+        self.failed_configs = []
+        self.connection_details = {}
+    
+    async def initialize_all_tools_async(self) -> Tuple[List[MCPToolset], Dict[str, Any]]:
+        """异步初始化所有MCP工具"""
+        logger.info("🚀 Starting async MCP tool initialization...")
+        
+        # 获取所有配置
+        configs = MCPToolConfig.get_base_configs()
+        amap_config = MCPToolConfig.get_amap_config()
+        if amap_config:
+            configs.append(amap_config)
+        
+        logger.info(f"📋 Found {len(configs)} MCP server configurations")
+        
+        # 并行初始化工具（限制并发数以避免资源竞争）
+        semaphore = asyncio.Semaphore(3)  # 最多同时初始化3个工具
+        tasks = [
+            self._initialize_single_tool_with_semaphore(semaphore, config) 
+            for config in configs
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 处理结果
+        for config, result in zip(configs, results):
+            if isinstance(result, Exception):
+                error_msg = str(result)
+                logger.error(f"❌ {config.name} initialization failed: {error_msg}")
+                self.failed_configs.append({
+                    'name': config.name,
+                    'error': error_msg,
+                    'required': config.required
+                })
+                self.connection_details[config.name] = {
+                    'status': 'failed',
+                    'error': error_msg,
+                    'required': config.required
+                }
+            elif result:
+                logger.info(f"✅ {config.name} initialized successfully")
+                self.initialized_toolsets.append(result)
+                self.connection_details[config.name] = {
+                    'status': 'success',
+                    'required': config.required
+                }
+        
+        # 创建状态报告
+        status_report = self._create_initialization_report()
+        
+        logger.info(f"🎯 Initialization complete: {len(self.initialized_toolsets)} successful, {len(self.failed_configs)} failed")
+        
+        return self.initialized_toolsets, status_report
+    
+    async def _initialize_single_tool_with_semaphore(self, semaphore: asyncio.Semaphore, config: MCPServerConfig) -> Optional[MCPToolset]:
+        """使用信号量限制并发的工具初始化"""
+        async with semaphore:
+            return await self._initialize_single_tool_async(config)
+    
+    async def _initialize_single_tool_async(self, config: MCPServerConfig) -> Optional[MCPToolset]:
+        """异步初始化单个工具"""
+        try:
+            logger.info(f"🔄 Initializing {config.name}...")
             
-            # Step 1: Check command availability
-            if not self._check_command_availability(command):
-                error_msg = f"Command '{command}' not available in system PATH"
-                self.failed_connections.append(f"{name}: {error_msg}")
-                self.connection_details[name]['status'] = 'failed'
-                self.connection_details[name]['error'] = error_msg
+            # 预检查
+            if not self._pre_check_config(config):
                 return None
             
-            # Step 2: Validate environment variables
-            if env_vars and not self._validate_environment_vars(env_vars, name):
-                error_msg = "Environment variable validation failed"
-                self.failed_connections.append(f"{name}: {error_msg}")
-                self.connection_details[name]['status'] = 'failed'
-                self.connection_details[name]['error'] = error_msg
-                return None
-            
-            # Step 3: Test MCP server startup
-            startup_success, startup_message = self._test_mcp_server_startup(
-                command, args, env_vars or {}, min(timeout, 15)
-            )
-            
-            if not startup_success:
-                error_msg = f"Server startup test failed: {startup_message}"
-                logger.warning(f"⚠️  {error_msg}")
-                self.failed_connections.append(f"{name}: {error_msg}")
-                self.connection_details[name]['status'] = 'failed'
-                self.connection_details[name]['error'] = error_msg
-                return None
-            
-            logger.info(f"✅ Pre-flight checks passed for {name}: {startup_message}")
-            
-            # Step 4: Create connection parameters
+            # 创建连接参数
             server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=env_vars or {}
+                command=config.command,
+                args=config.args,
+                env=config.env_vars
             )
             
             connection_params = StdioConnectionParams(
                 server_params=server_params,
-                timeout=float(timeout)
+                timeout=float(config.timeout)
             )
             
-            # Step 5: Create toolset with retry logic
-            max_retries = 2
-            for attempt in range(max_retries + 1):
-                try:
-                    logger.info(f"🔧 Creating MCP toolset for {name} (attempt {attempt + 1}/{max_retries + 1})")
-                    
-                    toolset = MCPToolset(
-                        connection_params=connection_params,
-                        tool_filter=tool_filter or []
-                    )
-                    
-                    # Test the toolset by trying to list available tools
-                    # This will help verify the connection is actually working
-                    logger.info(f"🧪 Testing toolset connectivity for {name}")
-                    
-                    logger.info(f"✅ Successfully configured MCP toolset: {name}")
-                    self.available_tools.append(name)
-                    self.connection_details[name]['status'] = 'success'
-                    self.connection_details[name]['attempt'] = attempt + 1
-                    return toolset
-                    
-                except Exception as e:
-                    if attempt < max_retries:
-                        logger.warning(f"⚠️  Attempt {attempt + 1} failed for {name}: {str(e)}, retrying...")
-                        time.sleep(1)  # Brief delay before retry
-                    else:
-                        raise e
+            # 创建工具集
+            toolset = MCPToolset(
+                connection_params=connection_params,
+                tool_filter=config.tool_filter
+            )
+            
+            # 验证工具集可用性
+            try:
+                tools = await toolset.get_tools()
+                logger.info(f"🧪 {config.name} validation: found {len(tools)} tools")
+                
+                if len(tools) == 0:
+                    logger.warning(f"⚠️  {config.name} returned no tools")
+                    if config.required:
+                        raise Exception(f"Required server {config.name} has no available tools")
+                
+                return toolset
+                
+            except Exception as validation_error:
+                logger.error(f"❌ {config.name} validation failed: {str(validation_error)}")
+                if config.required:
+                    raise validation_error
+                return None
             
         except Exception as e:
-            error_msg = f"Failed to configure {name}: {str(e)}"
-            logger.error(f"❌ {error_msg}")
-            self.failed_connections.append(error_msg)
-            self.connection_details[name]['status'] = 'failed'
-            self.connection_details[name]['error'] = str(e)
+            logger.error(f"❌ Failed to initialize {config.name}: {str(e)}")
+            if config.required:
+                raise e
             return None
     
-    def get_status_report(self) -> dict:
-        """Get a comprehensive status report of MCP connections"""
-        return {
-            'available_tools': self.available_tools,
-            'failed_connections': self.failed_connections,
-            'connection_details': self.connection_details,
-            'total_attempted': len(self.available_tools) + len(self.failed_connections),
-            'success_rate': len(self.available_tools) / max(1, len(self.available_tools) + len(self.failed_connections))
-        }
+    def _pre_check_config(self, config: MCPServerConfig) -> bool:
+        """预检查配置"""
+        import subprocess
+        import shutil
+        
+        # 检查命令可用性
+        if not shutil.which(config.command):
+            logger.warning(f"⚠️  Command '{config.command}' not found for {config.name}")
+            return False
+        
+        # 验证环境变量
+        for key, value in config.env_vars.items():
+            if not value or len(str(value)) < 8:
+                logger.warning(f"⚠️  Invalid environment variable {key} for {config.name}")
+                return False
+        
+        return True
     
-    def get_diagnostic_report(self) -> str:
-        """Get a detailed diagnostic report for troubleshooting"""
-        report_lines = [
-            "🔍 MCP Server Diagnostic Report",
-            "=" * 50,
-            f"📊 Summary: {len(self.available_tools)} successful, {len(self.failed_connections)} failed",
+    def _create_initialization_report(self) -> Dict[str, Any]:
+        """创建初始化报告"""
+        successful_tools = [name for name, details in self.connection_details.items() 
+                          if details['status'] == 'success']
+        failed_tools = [name for name, details in self.connection_details.items() 
+                       if details['status'] == 'failed']
+        
+        return {
+            'successful_tools': successful_tools,
+            'failed_tools': failed_tools,
+            'connection_details': self.connection_details,
+            'total_attempted': len(self.connection_details),
+            'success_rate': len(successful_tools) / max(1, len(self.connection_details)),
+            'critical_failures': [
+                name for name, details in self.connection_details.items()
+                if details['status'] == 'failed' and details.get('required', False)
+            ]
+        }
+
+class TravelAgentBuilder:
+    """旅行代理构建器"""
+    
+    def __init__(self):
+        self.tool_registry = MCPToolRegistry()
+        self.initialization_status = {}
+    
+    async def build_agent_async(self) -> Tuple[LlmAgent, Dict[str, Any]]:
+        """异步构建旅行代理"""
+        try:
+            logger.info("🏗️  Building travel agent with async MCP integration...")
+            
+            # 1. 异步初始化MCP工具
+            initializer = AsyncMCPToolInitializer()
+            toolsets, init_status = await initializer.initialize_all_tools_async()
+            
+            # 2. 注册工具到注册表
+            await self.tool_registry.register_toolsets_async(toolsets)
+            
+            # 3. 创建增强的旅行规划工具
+            travel_tool = self._create_enhanced_travel_planning_tool()
+            
+            # 4. 构建代理指令
+            instruction = self._build_agent_instruction(init_status)
+            
+            # 5. 创建代理
+            agent = LlmAgent(
+                name="travel_planning_agent",
+                model="gemini-2.0-flash",
+                instruction=instruction,
+                tools=toolsets + [travel_tool]
+            )
+            
+            # 6. 合并状态报告
+            registry_status = self.tool_registry.get_status_report()
+            combined_status = {
+                **init_status,
+                'registry_status': registry_status,
+                'agent_created': True
+            }
+            
+            logger.info("✅ Travel agent built successfully with async MCP integration")
+            return agent, combined_status
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to build agent: {str(e)}")
+            # 创建后备代理
+            fallback_agent = self._create_fallback_agent()
+            return fallback_agent, {
+                'error': str(e),
+                'fallback_mode': True,
+                'agent_created': True
+            }
+    
+    def _create_enhanced_travel_planning_tool(self):
+        """创建增强的旅行规划工具"""
+        def travel_planning_tool_with_async_mcp(
+            destination: str,
+            departure_location: str,
+            start_date: str,
+            duration: int,
+            budget: float
+        ) -> Dict[str, Any]:
+            """带有异步MCP集成的旅行规划工具"""
+            try:
+                logger.info(f"🧳 Planning travel: {departure_location} -> {destination}")
+                
+                # 创建异步MCP调用器
+                def mcp_caller(tool_name: str, arguments: dict) -> Dict[str, Any]:
+                    """同步包装器用于异步MCP调用"""
+                    try:
+                        # 在新的事件循环中运行异步调用
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            result = loop.run_until_complete(
+                                self.tool_registry.call_tool_async(tool_name, arguments)
+                            )
+                            return result
+                        finally:
+                            loop.close()
+                    except Exception as e:
+                        logger.error(f"MCP caller error: {str(e)}")
+                        return {
+                            'success': False,
+                            'error': f'MCP call failed: {str(e)}',
+                            'tool_name': tool_name
+                        }
+                
+                # 导入必要的模块
+                try:
+                    from travel_agent.main import TravelAgent
+                    from travel_agent.utils.date_parser import parse_date, get_current_date_info
+                except ImportError:
+                    from main import TravelAgent
+                    from utils.date_parser import parse_date, get_current_date_info
+                
+                # 创建旅行代理
+                agent = TravelAgent(use_mcp_tool=mcp_caller)
+                
+                # 解析日期并规划旅行
+                current_info = get_current_date_info()
+                parsed_start_date = parse_date(start_date)
+                
+                logger.info(f"📅 Date parsing: '{start_date}' -> '{parsed_start_date}'")
+                
+                result = agent.plan_travel(
+                    destination=destination,
+                    departure_location=departure_location,
+                    start_date=parsed_start_date,
+                    duration=duration,
+                    budget=budget
+                )
+                
+                # 添加MCP集成信息
+                if result.get('success'):
+                    result['mcp_integration'] = {
+                        'available_tools': list(self.tool_registry.tools_by_name.keys()),
+                        'servers': list(self.tool_registry.tools_by_server.keys()),
+                        'date_parsing': {
+                            'original_date': start_date,
+                            'parsed_date': parsed_start_date,
+                            'current_date': current_info['current_date']
+                        }
+                    }
+                
+                return result
+                
+            except Exception as e:
+                logger.error(f"❌ Error in enhanced travel planning: {str(e)}")
+                return {
+                    'success': False,
+                    'error': 'Enhanced travel planning error',
+                    'details': str(e)
+                }
+        
+        return travel_planning_tool_with_async_mcp
+    
+    def _build_agent_instruction(self, init_status: Dict[str, Any]) -> str:
+        """构建代理指令"""
+        instruction_parts = [
+            "You are an expert travel planning assistant with advanced MCP tool integration:",
+            "",
+            "🎯 CORE CAPABILITIES:",
+            "1. INTELLIGENT DATE PARSING: Automatically calculate dates from relative expressions like '后天', '明天', '3天后'",
+            "2. COMPREHENSIVE PLANNING: Generate detailed travel plans with attractions, accommodations, dining, transportation",
+            "3. VISUAL REPORTS: Create beautiful HTML reports with images and detailed information",
+            "4. MULTIPLE OPTIONS: Always provide economic and comfort travel plan options",
+            "5. REAL-TIME DATA: Use MCP tools for current weather, maps, and location data",
             ""
         ]
         
-        # Successful connections
-        if self.available_tools:
-            report_lines.extend([
-                "✅ Successful Connections:",
-                "-" * 25
+        # 添加可用工具的说明
+        successful_tools = init_status.get('successful_tools', [])
+        if successful_tools:
+            instruction_parts.extend([
+                "🔧 AVAILABLE MCP TOOLS:",
+                f"Successfully initialized: {', '.join(successful_tools)}",
+                ""
             ])
-            for tool_name in self.available_tools:
-                if tool_name in self.connection_details:
-                    details = self.connection_details[tool_name]
-                    report_lines.append(f"  • {tool_name}")
-                    report_lines.append(f"    Command: {details['command']} {' '.join(details['args'])}")
-                    report_lines.append(f"    Env vars: {details['env_vars']}")
-                    report_lines.append(f"    Timeout: {details['timeout']}s")
-                    if 'attempt' in details:
-                        report_lines.append(f"    Success on attempt: {details['attempt']}")
-                    report_lines.append("")
+            
+            if 'Time Server' in successful_tools:
+                instruction_parts.append("• TIME: Use time tools for accurate date calculations")
+            if 'Amap Maps Server' in successful_tools:
+                instruction_parts.append("• MAPS: Use Amap tools for location search, weather, and directions")
+            if 'Fetch Server' in successful_tools:
+                instruction_parts.append("• WEB: Use fetch tools for real-time web data")
+            if 'Memory Server' in successful_tools:
+                instruction_parts.append("• MEMORY: Use memory tools for user preferences and history")
         
-        # Failed connections
-        if self.failed_connections:
-            report_lines.extend([
-                "❌ Failed Connections:",
-                "-" * 20
+        # 添加错误处理说明
+        failed_tools = init_status.get('failed_tools', [])
+        if failed_tools:
+            instruction_parts.extend([
+                "",
+                f"⚠️  UNAVAILABLE TOOLS: {', '.join(failed_tools)}",
+                "Use AI-generated content as fallback for unavailable tools."
             ])
-            for failure in self.failed_connections:
-                report_lines.append(f"  • {failure}")
-            report_lines.append("")
         
-        # Detailed failure analysis
-        failed_details = {name: details for name, details in self.connection_details.items() 
-                         if details.get('status') == 'failed'}
-        
-        if failed_details:
-            report_lines.extend([
-                "🔧 Failure Analysis:",
-                "-" * 18
-            ])
-            for name, details in failed_details.items():
-                report_lines.append(f"  • {name}:")
-                report_lines.append(f"    Command: {details['command']} {' '.join(details['args'])}")
-                report_lines.append(f"    Error: {details.get('error', 'Unknown error')}")
-                report_lines.append(f"    Env vars: {details['env_vars']}")
-                report_lines.append("")
-        
-        # Recommendations
-        report_lines.extend([
-            "💡 Troubleshooting Recommendations:",
-            "-" * 35
+        instruction_parts.extend([
+            "",
+            "🎨 OUTPUT REQUIREMENTS:",
+            "- Always provide multiple plan options (budget and premium)",
+            "- Include detailed daily itineraries",
+            "- Add practical travel tips and local insights",
+            "- Generate comprehensive HTML reports",
+            "- Use current date/time for all calculations"
         ])
         
-        if any('Command' in failure and 'not available' in failure for failure in self.failed_connections):
-            report_lines.append("  • Install missing commands (npm, npx, uvx)")
-            report_lines.append("    - npm: Install Node.js from https://nodejs.org/")
-            report_lines.append("    - uvx: Install with 'pip install uv'")
-        
-        if any('amap' in failure.lower() for failure in self.failed_connections):
-            report_lines.append("  • Check Amap API key configuration")
-            report_lines.append("    - Verify AMAP_MAPS_API_KEY in .env file")
-            report_lines.append("    - Ensure API key is valid and active")
-        
-        if any('timeout' in failure.lower() for failure in self.failed_connections):
-            report_lines.append("  • Network or performance issues detected")
-            report_lines.append("    - Check internet connection")
-            report_lines.append("    - Consider increasing timeout values")
-        
-        return "\n".join(report_lines)
+        return "\n".join(instruction_parts)
     
-    def print_diagnostic_report(self):
-        """Print the diagnostic report to console"""
-        print(self.get_diagnostic_report())
-
-def create_robust_travel_agent():
-    """Create travel agent with robust MCP handling"""
-    
-    mcp_manager = SafeMCPManager()
-    mcp_tools = []
-    
-    # Define MCP server configurations
-    mcp_configs = [
-        {
-            'name': 'Time Server',
-            'command': 'uvx',
-            'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai'],
-            'env_vars': {},
-            'tool_filter': ['get_current_time', 'convert_time'],
-            'priority': 'high',  # Essential for date parsing
-            'timeout': 30
-        },
-        {
-            'name': 'Fetch Server',
-            'command': 'uvx',
-            'args': ['mcp-server-fetch'],
-            'env_vars': {},
-            'tool_filter': ['fetch'],
-            'priority': 'medium',
-            'timeout': 30
-        },
-        {
-            'name': 'Memory Server',
-            'command': 'npx',
-            'args': ['-y', '@modelcontextprotocol/server-memory'],
-            'env_vars': {},
-            'tool_filter': ['create_entities', 'search_nodes', 'open_nodes'],
-            'priority': 'low',
-            'timeout': 60
-        }
-    ]
-    
-    # Add Amap server only if API key is available
-    amap_api_key = os.getenv('AMAP_MAPS_API_KEY', '')
-    if amap_api_key and amap_api_key != 'your_amap_api_key_here':
-        logger.info(f"🗝️  Found Amap API key: {amap_api_key[:8]}...")
-        mcp_configs.append({
-            'name': 'Amap Maps Server',
-            'command': 'npx',
-            'args': ['-y', '@amap/amap-maps-mcp-server'],
-            'env_vars': {'AMAP_MAPS_API_KEY': amap_api_key},  # Fixed: Use correct env var name
-            'tool_filter': [
-                'maps_text_search',
-                'maps_around_search',
-                'maps_geo',
-                'maps_regeocode',
-                'maps_search_detail',
-                'maps_weather',
-                'maps_direction_driving',
-                'maps_direction_walking'
-            ],
-            'priority': 'high',  # Important for location services
-            'timeout': 45  # Reduced from 60 to 45 seconds
-        })
-    else:
-        logger.warning("⚠️  Amap Maps API key not found or invalid, skipping Amap MCP server")
-        logger.info(f"🔍 Current AMAP_MAPS_API_KEY value: '{amap_api_key}'")
-    
-    # Try to create each MCP toolset
-    for config in mcp_configs:
-        toolset = mcp_manager.create_mcp_toolset(
-            name=config['name'],
-            command=config['command'],
-            args=config['args'],
-            env_vars=config['env_vars'],
-            tool_filter=config['tool_filter'],
-            timeout=config.get('timeout', 30)
+    def _create_fallback_agent(self) -> LlmAgent:
+        """创建后备代理"""
+        logger.info("🔄 Creating fallback agent without MCP tools...")
+        return LlmAgent(
+            name="travel_planning_agent_fallback",
+            model="gemini-2.0-flash",
+            instruction=(
+                "You are an expert travel planning assistant. Generate detailed travel plans "
+                "that include attractions, accommodations, dining, transportation, and budget "
+                "optimization. Always provide multiple travel plan options (economic and comfort) "
+                "and create beautiful HTML reports with images and detailed information. "
+                "Note: MCP tools are currently unavailable, using AI-generated content."
+            ),
+            tools=[create_travel_planning_tool],
         )
-        if toolset:
-            mcp_tools.append(toolset)
-    
-    # Get status report
-    status = mcp_manager.get_status_report()
-    logger.info(f"🔧 MCP Status: {status['available_tools']} available, "
-               f"{len(status['failed_connections'])} failed")
-    
-    if status['failed_connections']:
-        logger.warning("⚠️  Failed MCP connections:")
-        for failure in status['failed_connections']:
-            logger.warning(f"   - {failure}")
-    
-    # Create a wrapper function that includes MCP tool access
-    def create_travel_planning_tool_with_mcp(
-        destination: str,
-        departure_location: str,
-        start_date: str,
-        duration: int,
-        budget: float
-    ) -> Dict[str, Any]:
-        """Travel planning tool with MCP integration."""
-        try:
-            # NOTE: Google ADK MCPToolset doesn't support direct tool calling
-            # MCP tools are automatically available to the LLM agent through the toolsets
-            # The agent can call MCP tools directly without a wrapper function
-            
-            # Create travel agent without MCP tool wrapper (not needed with Google ADK)
-            try:
-                from travel_agent.main import TravelAgent
-                from travel_agent.utils.date_parser import parse_date, get_current_date_info
-            except ImportError:
-                from main import TravelAgent
-                from utils.date_parser import parse_date, get_current_date_info
-            
-            # Create agent with MCP tool function for weather service integration
-            # Note: In Google ADK, we need to create a wrapper function that can call MCP tools
-            def mcp_tool_wrapper(server_name: str, tool_name: str, arguments: dict):
-                """Wrapper function to call MCP tools through the available toolsets"""
-                try:
-                    logger.info(f"MCP tool call: {server_name}.{tool_name} with args: {arguments}")
-                    
-                    # Find the appropriate MCP toolset
-                    target_toolset = None
-                    for toolset in mcp_tools:
-                        # Check if this toolset handles the requested server
-                        # Note: This is a simplified approach - in practice, you'd need to 
-                        # match the toolset to the server name more precisely
-                        if hasattr(toolset, '_connection_params'):
-                            # Try to match server name with toolset
-                            if server_name == 'amap-maps':
-                                # Check if this is the Amap toolset
-                                server_params = getattr(toolset._connection_params, 'server_params', None)
-                                if server_params and '@amap/amap-maps-mcp-server' in str(server_params.args):
-                                    target_toolset = toolset
-                                    break
-                            elif server_name == 'time':
-                                # Check if this is the time toolset
-                                server_params = getattr(toolset._connection_params, 'server_params', None)
-                                if server_params and 'mcp-server-time' in str(server_params.args):
-                                    target_toolset = toolset
-                                    break
-                    
-                    if target_toolset:
-                        # In Google ADK, MCP tools are called through the agent's execution context
-                        # This is a simplified simulation - actual implementation would be different
-                        logger.info(f"Found matching toolset for {server_name}")
-                        
-                        # For now, return a success indicator that the tool was found
-                        # The actual MCP call would be handled by the Google ADK framework
-                        return {
-                            "mcp_call_prepared": True,
-                            "server_name": server_name,
-                            "tool_name": tool_name,
-                            "arguments": arguments,
-                            "note": "MCP call would be executed by Google ADK framework"
-                        }
-                    else:
-                        logger.warning(f"No matching toolset found for {server_name}")
-                        return {"error": f"MCP server '{server_name}' not available"}
-                        
-                except Exception as e:
-                    logger.error(f"Error in MCP tool wrapper: {str(e)}")
-                    return {"error": f"MCP tool wrapper error: {str(e)}"}
-            
-            agent = TravelAgent(use_mcp_tool=mcp_tool_wrapper)
-            
-            # Parse dates and plan travel
-            current_info = get_current_date_info()
-            parsed_start_date = parse_date(start_date)
-            
-            logger.info(f"Planning travel with MCP integration: {departure_location} -> {destination}")
-            logger.info(f"Start date: {parsed_start_date} (original: {start_date})")
-            
-            result = agent.plan_travel(
-                destination=destination,
-                departure_location=departure_location,
-                start_date=parsed_start_date,
-                duration=duration,
-                budget=budget
-            )
-            
-            # Add MCP status info
-            if result.get('success'):
-                result['mcp_integration'] = {
-                    'available_tools': mcp_manager.available_tools,
-                    'date_parsing': {
-                        'original_date': start_date,
-                        'parsed_date': parsed_start_date,
-                        'current_date': current_info['current_date']
-                    }
-                }
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error in MCP-integrated travel planning: {str(e)}")
-            return {
-                'success': False,
-                'error': 'Error in MCP-integrated travel planning',
-                'details': str(e)
-            }
-    
-    # Add the MCP toolsets and travel planning tool
-    # Google ADK automatically makes MCP tools available to the LLM agent
-    all_tools = mcp_tools + [create_travel_planning_tool_with_mcp]
-    
-    # Create enhanced instruction based on available tools
-    instruction_parts = [
-        "You are an expert travel planning assistant with the following capabilities:",
-        "1. INTELLIGENT DATE PARSING: When users mention relative dates like '后天' (day after tomorrow), "
-        "'明天' (tomorrow), or '3天后' (in 3 days), automatically calculate the correct date based on "
-        "the current system time. NEVER use hardcoded dates.",
-        "2. COMPREHENSIVE PLANNING: Generate detailed travel plans that include attractions, "
-        "accommodations, dining, transportation (高铁, 航班, 自驾, 客车), and budget optimization.",
-        "3. VISUAL REPORTS: Create beautiful HTML reports with images and detailed information.",
-        "4. MULTIPLE OPTIONS: Always provide multiple travel plan options (economic and comfort).",
-        "5. CURRENT CONTEXT: Always consider the current date and time when planning travel dates."
-    ]
-    
-    # Add tool-specific instructions based on what's available
-    if 'Time Server' in status['available_tools']:
-        instruction_parts.append("6. REAL-TIME DATES: Use the time server to get accurate current time for date calculations.")
-    
-    if 'Amap Maps Server' in status['available_tools']:
-        instruction_parts.append("7. LOCATION SERVICES: Use Amap maps tools for accurate location information, POI search, and route planning.")
-    
-    if 'Fetch Server' in status['available_tools']:
-        instruction_parts.append("8. WEB DATA: Use fetch tools to get real-time information when needed.")
-    
-    if 'Memory Server' in status['available_tools']:
-        instruction_parts.append("9. MEMORY: Use memory tools to store and recall travel preferences and past interactions.")
-    
-    # Add fallback instruction
-    instruction_parts.append(
-        f"10. GRACEFUL DEGRADATION: If MCP tools fail, continue with AI-generated content and inform the user. "
-        f"Currently available: {', '.join(status['available_tools']) if status['available_tools'] else 'None'}"
-    )
-    
-    instruction = "\n".join(instruction_parts)
-    
-    logger.info(f"🚀 Creating agent with {len(mcp_tools)} MCP toolsets and 1 travel planning tool")
-    
-    return LlmAgent(
-        name="travel_planning_agent",
-        model="gemini-2.0-flash",
-        instruction=instruction,
-        tools=all_tools,
-    ), status
 
-# Create the agent with error handling
+# 异步创建函数
+async def create_travel_agent_async() -> Tuple[LlmAgent, Dict[str, Any]]:
+    """异步创建旅行代理"""
+    builder = TravelAgentBuilder()
+    return await builder.build_agent_async()
+
+# 同步包装器（向后兼容）
+def create_robust_travel_agent() -> Tuple[LlmAgent, Dict[str, Any]]:
+    """创建旅行代理（同步版本，向后兼容）"""
+    try:
+        logger.info("🚀 Starting travel agent creation...")
+        
+        # 检查是否已有运行的事件循环
+        try:
+            loop = asyncio.get_running_loop()
+            logger.info("📡 Using existing event loop")
+            # 如果已有循环，创建新任务
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, create_travel_agent_async())
+                return future.result(timeout=120)  # 2分钟超时
+        except RuntimeError:
+            # 没有运行的循环，直接运行
+            logger.info("🔄 Creating new event loop")
+            return asyncio.run(create_travel_agent_async())
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to create travel agent: {str(e)}")
+        # 创建最小后备代理
+        logger.info("🆘 Creating minimal fallback agent...")
+        builder = TravelAgentBuilder()
+        return builder._create_fallback_agent(), {
+            'error': str(e),
+            'fallback_mode': True,
+            'minimal_agent': True
+        }
+
+# 创建代理实例
 try:
+    logger.info("🎬 Initializing travel agent...")
     root_agent, mcp_status = create_robust_travel_agent()
-    logger.info("✅ Travel agent created successfully")
-    logger.info(f"📊 MCP Tools Status: {mcp_status}")
+    
+    # 记录初始化结果
+    if mcp_status.get('fallback_mode'):
+        logger.warning("⚠️  Travel agent created in fallback mode")
+        if mcp_status.get('error'):
+            logger.error(f"Error details: {mcp_status['error']}")
+    else:
+        logger.info("✅ Travel agent created successfully with MCP integration")
+        
+        # 记录可用工具
+        successful_tools = mcp_status.get('successful_tools', [])
+        if successful_tools:
+            logger.info(f"🔧 Available MCP tools: {', '.join(successful_tools)}")
+        
+        failed_tools = mcp_status.get('failed_tools', [])
+        if failed_tools:
+            logger.warning(f"⚠️  Failed MCP tools: {', '.join(failed_tools)}")
+    
+    logger.info(f"📊 Final status: {mcp_status}")
+    
 except Exception as e:
-    logger.error(f"❌ Failed to create travel agent: {e}")
-    # Create a minimal agent with just the travel planning tool
-    logger.info("🔄 Creating fallback agent with minimal tools...")
+    logger.error(f"💥 Critical error during agent initialization: {str(e)}")
+    # 最后的后备方案
     root_agent = LlmAgent(
-        name="travel_planning_agent_fallback",
+        name="travel_planning_agent_emergency",
         model="gemini-2.0-flash",
-        instruction=(
-            "You are an expert travel planning assistant. Generate detailed travel plans "
-            "that include attractions, accommodations, dining, transportation, and budget "
-            "optimization. Always provide multiple travel plan options (economic and comfort) "
-            "and create beautiful HTML reports with images and detailed information. "
-            "Note: MCP tools are currently unavailable, using AI-generated content."
-        ),
+        instruction="You are a travel planning assistant. Generate travel plans using AI knowledge.",
         tools=[create_travel_planning_tool],
     )
-    logger.info("✅ Fallback travel agent created successfully")
+    mcp_status = {
+        'critical_error': str(e),
+        'emergency_mode': True
+    }
+    logger.info("🆘 Emergency fallback agent created")
