@@ -3,6 +3,7 @@ from typing import Any, List
 
 from dotenv import load_dotenv
 from google.adk.agents.llm_agent import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
 
 from google.adk.tools.mcp_tool import StdioConnectionParams
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
@@ -57,7 +58,7 @@ def create_agent() -> LlmAgent:
     toolsets = create_mcp_toolsets()
     
     root_agent = LlmAgent(
-        model="gemini-2.0-flash",
+        model=LiteLlm(model="ollama/qwen3:32b"),
         name="assistant",
         instruction="""Help user extract and summarize the article from wikipedia link.
         Use the following tools to extract wikipedia article and get current time.

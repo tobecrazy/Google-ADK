@@ -23,3 +23,4 @@ pillow
 selenium
 webdriver_manager
 uv
+litellm
