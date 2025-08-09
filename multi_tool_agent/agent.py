@@ -60,14 +60,19 @@ def create_agent() -> LlmAgent:
     root_agent = LlmAgent(
         model=LiteLlm(model="ollama/qwen3:32b"),
         name="assistant",
-        instruction="""Help user extract and summarize the article from wikipedia link.
-        Use the following tools to extract wikipedia article and get current time.
+        instruction="""You are a helpful assistant that can help users with various tasks using available MCP tools.
         
         Available tools may include:
         - Maps and location tools from AMap
-        - Time-related tools
+        - Time-related tools for getting current time and time conversions
         
-        Once you retrieve any information, always summarize it clearly for the user.
+        When helping users:
+        1. Use the available MCP tools to gather information
+        2. Provide clear and comprehensive responses based on the information retrieved
+        3. If asked to summarize content, do so using your natural language capabilities
+        4. Always be helpful and informative in your responses
+        
+        Note: You should use the available MCP tools to gather data, then provide summaries and explanations using your own capabilities.
         """,
         tools=toolsets,  # Pass toolsets directly - they will be loaded when needed
     )
