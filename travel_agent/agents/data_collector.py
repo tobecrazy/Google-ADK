@@ -21,7 +21,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from travel_agent.services.weather_service_mcp import mcp_weather_service
+from travel_agent.services.weather_service import WeatherService
 from travel_agent.services.attraction_service import AttractionService
 from travel_agent.services.transport_service import TransportService
 from travel_agent.services.accommodation_service import AccommodationService
@@ -37,7 +37,7 @@ class DataCollectorAgent:
         """Initialize the data collector with all services and optional MCP tool function."""
         # Pass MCP tool function to services that need it
         self.use_mcp_tool = use_mcp_tool
-        self.weather_service = mcp_weather_service
+        self.weather_service = WeatherService(use_mcp_tool=use_mcp_tool)
         self.attraction_service = AttractionService()
         self.transport_service = TransportService()
         self.accommodation_service = AccommodationService()
@@ -160,51 +160,26 @@ class DataCollectorAgent:
             }
     
     def _get_weather_data(self, destination: str, start_date: str, duration: int) -> Dict[str, Any]:
-        """Get weather forecast for travel dates using MCP tools."""
+        """Get weather forecast for travel dates using the WeatherService."""
         try:
-            # First get the weather service response which indicates MCP is needed
-            weather_response = self.weather_service.get_weather_forecast(destination, start_date, duration)
+            logger.info(f"Getting weather data for {destination} from {start_date} for {duration} days")
             
-            # Check if MCP call is required
-            if weather_response.get('mcp_required') and self.use_mcp_tool:
-                logger.info(f"Making MCP weather call for {destination}")
-                
-                # Make the actual MCP call
-                try:
-                    mcp_response = self.use_mcp_tool(
-                        server_name=weather_response['mcp_server'],
-                        tool_name=weather_response['mcp_tool'],
-                        arguments=weather_response['mcp_args']
-                    )
-                    
-                    if mcp_response:
-                        # Parse the MCP response using the weather service
-                        parsed_weather = self.weather_service.parse_amap_weather_response(
-                            mcp_response, start_date, duration
-                        )
-                        logger.info(f"Successfully got weather data from MCP for {destination}")
-                        return parsed_weather
-                    else:
-                        logger.warning(f"Empty MCP response for weather data")
-                        return weather_response  # Return original response with error info
-                        
-                except Exception as mcp_error:
-                    logger.error(f"MCP weather call failed: {str(mcp_error)}")
-                    return {
-                        'success': False,
-                        'destination': destination,
-                        'error': f'MCP weather service error: {str(mcp_error)}',
-                        'forecast': [],
-                        'source': 'MCP Weather Service Error',
-                        'note': '天气数据暂时无法获取，MCP服务连接失败。'
-                    }
+            # Use the WeatherService directly - it handles MCP integration internally
+            weather_response = self.weather_service.get_weather_forecast(
+                destination=destination,
+                start_date=start_date,
+                duration=duration
+            )
+            
+            if weather_response.get('success'):
+                logger.info(f"Successfully got weather data for {destination}")
+                return weather_response
             else:
-                # MCP not available, return the service response (which contains error info)
-                logger.warning("MCP tool not available for weather service")
+                logger.warning(f"Weather service returned error for {destination}: {weather_response.get('error', 'Unknown error')}")
                 return weather_response
                 
         except Exception as e:
-            logger.warning(f"Error getting weather data: {str(e)}")
+            logger.error(f"Error getting weather data for {destination}: {str(e)}")
             return {
                 'success': False,
                 'destination': destination,

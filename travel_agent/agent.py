@@ -443,9 +443,11 @@ class TravelAgentBuilder:
                 logger.info(f"🧳 Planning travel: {departure_location} -> {destination}")
                 
                 # 创建异步MCP调用器
-                def mcp_caller(tool_name: str, arguments: dict) -> Dict[str, Any]:
-                    """同步包装器用于异步MCP调用"""
+                def mcp_caller(tool_name: str, arguments: dict, server_name: str = None, **kwargs) -> Dict[str, Any]:
+                    """同步包装器用于异步MCP调用，支持server_name参数"""
                     try:
+                        logger.info(f"🔧 MCP caller invoked: tool={tool_name}, server={server_name}, args={arguments}")
+                        
                         # 在新的事件循环中运行异步调用
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
@@ -453,24 +455,50 @@ class TravelAgentBuilder:
                             result = loop.run_until_complete(
                                 self.tool_registry.call_tool_async(tool_name, arguments)
                             )
+                            
+                            # 添加服务器信息到结果中
+                            if result.get('success') and server_name:
+                                result['server_name'] = server_name
+                            
                             return result
                         finally:
                             loop.close()
                     except Exception as e:
-                        logger.error(f"MCP caller error: {str(e)}")
+                        logger.error(f"MCP caller error for {tool_name}: {str(e)}")
                         return {
                             'success': False,
                             'error': f'MCP call failed: {str(e)}',
-                            'tool_name': tool_name
+                            'tool_name': tool_name,
+                            'server_name': server_name
                         }
                 
                 # 导入必要的模块
                 try:
-                    from travel_agent.main import TravelAgent
-                    from travel_agent.utils.date_parser import parse_date, get_current_date_info
-                except ImportError:
                     from main import TravelAgent
                     from utils.date_parser import parse_date, get_current_date_info
+                except ImportError:
+                    try:
+                        from travel_agent.main import TravelAgent
+                        from travel_agent.utils.date_parser import parse_date, get_current_date_info
+                    except ImportError:
+                        # Create fallback implementations
+                        logger.error("Failed to import TravelAgent - using fallback")
+                        class TravelAgent:
+                            def __init__(self, use_mcp_tool=None):
+                                self.use_mcp_tool = use_mcp_tool
+                            def plan_travel(self, **kwargs):
+                                return {
+                                    'success': False,
+                                    'error': 'TravelAgent import failed - module not available',
+                                    'fallback': True
+                                }
+                        
+                        def parse_date(date_str):
+                            return date_str
+                        
+                        def get_current_date_info():
+                            from datetime import datetime
+                            return {'current_date': datetime.now().strftime('%Y-%m-%d')}
                 
                 # 创建旅行代理
                 agent = TravelAgent(use_mcp_tool=mcp_caller)

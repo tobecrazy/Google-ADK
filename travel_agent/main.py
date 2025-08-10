@@ -156,10 +156,11 @@ def create_travel_planning_tool(
     departure_location: str,
     start_date: str,
     duration: int,
-    budget: float
+    budget: float,
+    use_mcp_tool=None
 ) -> Dict[str, Any]:
     """
-    Tool function for Google ADK integration with intelligent date parsing.
+    Tool function for Google ADK integration with intelligent date parsing and MCP support.
     
     Args:
         destination: Target destination
@@ -167,6 +168,7 @@ def create_travel_planning_tool(
         start_date: Travel start date (can be relative like "后天" or absolute like "2025-07-28")
         duration: Number of travel days
         budget: Total budget
+        use_mcp_tool: MCP tool function for external API calls
         
     Returns:
         Travel planning result
@@ -185,9 +187,10 @@ def create_travel_planning_tool(
         logger.info(f"Planning travel: {departure_location} -> {destination}")
         logger.info(f"Start date: {parsed_start_date} (original: {start_date})")
         logger.info(f"Duration: {duration} days, Budget: ¥{budget}")
+        logger.info(f"MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
         
-        # Create agent and plan travel
-        agent = TravelAgent()
+        # Create agent with MCP tool function and plan travel
+        agent = TravelAgent(use_mcp_tool=use_mcp_tool)
         result = agent.plan_travel(
             destination=destination,
             departure_location=departure_location,
