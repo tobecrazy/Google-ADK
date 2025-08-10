@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams, StdioServerParameters
-from google.adk.models.lite_llm import LiteLlm
 
 # Add the current directory to sys.path to enable absolute imports
 import sys
@@ -404,7 +403,7 @@ class TravelAgentBuilder:
             # 5. 创建代理
             agent = LlmAgent(
                 name="travel_planning_agent",
-                model=LiteLlm(model="ollama/qwen3:32b"),
+                model= "gemini-2.0-flash",
                 instruction=instruction,
                 tools=toolsets + [travel_tool]
             )
@@ -572,7 +571,7 @@ class TravelAgentBuilder:
         logger.info("🔄 Creating fallback agent without MCP tools...")
         return LlmAgent(
             name="travel_planning_agent_fallback",
-            model=LiteLlm(model="ollama/qwen3:32b"),
+            model= "gemini-2.0-flash",
             instruction=(
                 "You are an expert travel planning assistant. Generate detailed travel plans "
                 "that include attractions, accommodations, dining, transportation, and budget "
@@ -649,7 +648,7 @@ except Exception as e:
     # 最后的后备方案
     root_agent = LlmAgent(
         name="travel_planning_agent_emergency",
-        model=LiteLlm(model="ollama/qwen3:32b"),
+        model= "gemini-2.0-flash",
         instruction="You are a travel planning assistant. Generate travel plans using AI knowledge.",
         tools=[create_travel_planning_tool],
     )
