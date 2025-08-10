@@ -127,6 +127,7 @@ class WeatherService:
             )
             
             logger.info(f"📡 MCP tool response type: {type(result)}")
+            logger.info(f"📋 MCP tool response keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
             logger.debug(f"📋 MCP tool raw response: {result}")
             
             if not result:
@@ -140,10 +141,23 @@ class WeatherService:
             if isinstance(result, dict):
                 # Check if it's an MCP error response
                 if 'success' in result and not result['success']:
-                    logger.warning(f"⚠️ MCP tool returned error: {result.get('error', 'Unknown error')}")
+                    error_msg = result.get('error', 'Unknown error')
+                    logger.warning(f"⚠️ MCP tool returned error: {error_msg}")
+                    
+                    # Check for specific error types
+                    if 'event loop' in error_msg.lower():
+                        logger.error("🔄 Event loop conflict detected in MCP call")
+                        return {
+                            'success': False,
+                            'error': f"MCP tool error: {error_msg}",
+                            'error_type': 'event_loop_conflict',
+                            'suggestion': 'Event loop conflict - this should be fixed by the new async handling'
+                        }
+                    
                     return {
                         'success': False,
-                        'error': f"MCP tool error: {result.get('error', 'Unknown error')}"
+                        'error': f"MCP tool error: {error_msg}",
+                        'error_type': 'mcp_tool_error'
                     }
                 
                 # Check for direct error field
@@ -151,7 +165,8 @@ class WeatherService:
                     logger.warning(f"⚠️ AMap weather API error: {result['error']}")
                     return {
                         'success': False,
-                        'error': result['error']
+                        'error': result['error'],
+                        'error_type': 'amap_api_error'
                     }
             
             # Parse the weather data
@@ -173,15 +188,20 @@ class WeatherService:
                 return {
                     'success': False,
                     'error': 'Failed to parse AMap weather response - invalid format',
-                    'raw_response': result
+                    'raw_response': result,
+                    'error_type': 'parsing_error'
                 }
                 
         except Exception as e:
             logger.error(f"💥 Exception calling AMap weather API for {city}: {str(e)}")
             logger.error(f"🔍 Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"📋 Full traceback: {traceback.format_exc()}")
             return {
                 'success': False,
-                'error': f'AMap weather API call failed: {str(e)}'
+                'error': f'AMap weather API call failed: {str(e)}',
+                'error_type': 'exception',
+                'exception_type': type(e).__name__
             }
     
     def _parse_amap_weather_response(self, response: Any) -> Optional[Dict[str, Any]]:

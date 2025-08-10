@@ -444,32 +444,75 @@ class TravelAgentBuilder:
                 
                 # 创建异步MCP调用器
                 def mcp_caller(tool_name: str, arguments: dict, server_name: str = None, **kwargs) -> Dict[str, Any]:
-                    """同步包装器用于异步MCP调用，支持server_name参数"""
+                    """同步包装器用于异步MCP调用，支持server_name参数，解决事件循环冲突"""
                     try:
                         logger.info(f"🔧 MCP caller invoked: tool={tool_name}, server={server_name}, args={arguments}")
                         
-                        # 在新的事件循环中运行异步调用
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
+                        # 检查是否在异步上下文中
                         try:
-                            result = loop.run_until_complete(
+                            # 尝试获取当前运行的事件循环
+                            current_loop = asyncio.get_running_loop()
+                            logger.info("📡 Detected running event loop, using thread executor to avoid conflict")
+                            
+                            # 在线程池中运行异步操作以避免循环冲突
+                            import concurrent.futures
+                            import threading
+                            
+                            def run_in_new_loop():
+                                """在新线程中创建新的事件循环"""
+                                new_loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(new_loop)
+                                try:
+                                    logger.info(f"🔄 Running {tool_name} in new thread event loop")
+                                    return new_loop.run_until_complete(
+                                        self.tool_registry.call_tool_async(tool_name, arguments)
+                                    )
+                                finally:
+                                    new_loop.close()
+                                    # 清理线程本地的事件循环设置
+                                    asyncio.set_event_loop(None)
+                            
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                                future = executor.submit(run_in_new_loop)
+                                result = future.result(timeout=30)  # 30秒超时
+                                
+                        except RuntimeError as re:
+                            # 没有运行的事件循环，可以直接创建
+                            logger.info("🔄 No running event loop detected, creating new one directly")
+                            result = asyncio.run(
                                 self.tool_registry.call_tool_async(tool_name, arguments)
                             )
-                            
-                            # 添加服务器信息到结果中
+                        
+                        # 验证结果并添加服务器信息
+                        if result and isinstance(result, dict):
                             if result.get('success') and server_name:
                                 result['server_name'] = server_name
+                            logger.info(f"✅ MCP tool {tool_name} executed successfully: {result.get('success', False)}")
+                        else:
+                            logger.warning(f"⚠️ MCP tool {tool_name} returned unexpected result format: {type(result)}")
                             
-                            return result
-                        finally:
-                            loop.close()
+                        return result
+                        
+                    except concurrent.futures.TimeoutError:
+                        error_msg = f"MCP tool {tool_name} timed out after 30 seconds"
+                        logger.error(f"⏰ {error_msg}")
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'tool_name': tool_name,
+                            'server_name': server_name
+                        }
                     except Exception as e:
-                        logger.error(f"MCP caller error for {tool_name}: {str(e)}")
+                        logger.error(f"❌ MCP caller error for {tool_name}: {str(e)}")
+                        logger.error(f"🔍 Exception type: {type(e).__name__}")
+                        import traceback
+                        logger.debug(f"📋 Full traceback: {traceback.format_exc()}")
                         return {
                             'success': False,
                             'error': f'MCP call failed: {str(e)}',
                             'tool_name': tool_name,
-                            'server_name': server_name
+                            'server_name': server_name,
+                            'exception_type': type(e).__name__
                         }
                 
                 # 导入必要的模块
