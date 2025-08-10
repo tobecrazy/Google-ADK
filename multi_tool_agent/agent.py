@@ -58,7 +58,14 @@ def create_agent() -> LlmAgent:
     toolsets = create_mcp_toolsets()
     
     root_agent = LlmAgent(
-        model=LiteLlm(model="ollama/qwen3:32b"),
+        model= LiteLlm(
+        # Specify the OpenRouter model using 'openrouter/' prefix
+        #model="openrouter/moonshotai/kimi-k2:free",
+        model="openrouter/moonshotai/kimi-k2:free",
+        # Explicitly provide the API key from environment variables
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        # Explicitly provide the OpenRouter API base URL
+        api_base="https://openrouter.ai/api/v1"),
         name="assistant",
         instruction="""You are a helpful assistant that can help users with various tasks using available MCP tools.
         
