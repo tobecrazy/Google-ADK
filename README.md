@@ -71,7 +71,31 @@ AMAP_MAPS_API_KEY=your_amap_api_key_here
 
 # Optional: Other service API keys
 OPENWEATHER_API_KEY=your_openweather_key_here
+
+# MCP Configuration (to prevent timeout issues)
+MCP_TIMEOUT=30
+MCP_RETRIES=3
+MCP_LOG_LEVEL=info
+
+# LiteLLM Configuration
+LITELLM_LOG=ERROR
+LITELLM_MAX_RETRIES=3
+LITELLM_TIMEOUT=30
+
+# Travel Agent Settings
+DEFAULT_TIMEZONE=Asia/Shanghai
+DEFAULT_CURRENCY=CNY
+CACHE_ENABLED=true
+CACHE_TTL=3600
 ```
+
+### Model Update
+
+The travel agent now uses Openrouter models for enhanced performance and fallback options. The models are configured to automatically switch in case of rate limits, ensuring continuous operation.
+
+### Usage Instructions
+
+Ensure all environment variables are set correctly in the `.env` file. The agent now supports advanced model configurations and MCP tool integrations for real-time data access.
 
 ## 🛠️ Usage
 

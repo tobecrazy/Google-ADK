@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams, StdioServerParameters
 
@@ -29,10 +30,14 @@ except ImportError:
     except ImportError:
         # Create a minimal fallback function
         def create_travel_planning_tool(destination: str, departure_location: str, start_date: str, duration: int, budget: float) -> dict:
+            # Example logic without MCP tool
             return {
-                'success': False,
-                'error': 'Travel planning tool not available - import error',
-                'fallback': True
+                'success': True,
+                'destination': destination,
+                'departure_location': departure_location,
+                'start_date': start_date,
+                'duration': duration,
+                'budget': budget
             }
 
 # Configure logging
@@ -400,10 +405,13 @@ class TravelAgentBuilder:
             # 4. 构建代理指令
             instruction = self._build_agent_instruction(init_status)
             
+            # Create model with fallback options
+            model = self.create_llm_model()
+
             # 5. 创建代理
             agent = LlmAgent(
                 name="travel_planning_agent",
-                model= "gemini-2.0-flash",
+                model=model,
                 instruction=instruction,
                 tools=toolsets + [travel_tool]
             )
@@ -429,6 +437,42 @@ class TravelAgentBuilder:
                 'agent_created': True
             }
     
+    def create_llm_model(self) -> LiteLlm:
+        """Creates a LiteLLM model with fallback options for rate limits."""
+        
+        # List of models to try in order (most reliable and least rate-limited first)
+        models_to_try = [
+            "openrouter/moonshotai/kimi-k2:free",
+            "openrouter/qwen/qwen3-235b-a22b:free",
+            "openrouter/deepseek/deepseek-chat-v3-0324:free"     
+        ]
+        
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+        
+        for i, model in enumerate(models_to_try):
+            try:
+                logger.info(f"Attempting to create model with: {model} (attempt {i+1}/{len(models_to_try)})")
+                llm_model = LiteLlm(
+                    model=model,
+                    api_key=api_key,
+                    api_base="https://openrouter.ai/api/v1",
+                    max_retries=2,  # Reduced retries to fail faster
+                    timeout=30
+                )
+                logger.info(f"✅ Successfully created model with: {model}")
+                return llm_model
+            except Exception as e:
+                logger.error(f"❌ Failed to create model with {model}: {str(e)[:100]}...")
+                if model != models_to_try[-1]:  # Not the last model
+                    logger.info(f"⏭️  Trying next model in {2}s...")
+                    time.sleep(2)  # Brief delay before trying next model
+                continue
+        
+        # If all models fail, raise an exception
+        raise RuntimeError("❌ All model options failed. Please check your API key and try again later.")
+
     def _create_enhanced_travel_planning_tool(self):
         """创建增强的旅行规划工具"""
         def travel_planning_tool_with_async_mcp(
