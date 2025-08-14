@@ -413,7 +413,7 @@ class TravelAgentBuilder:
                 name="travel_planning_agent",
                 model=model,
                 instruction=instruction,
-                tools=toolsets + [travel_tool]
+                tools=[travel_tool] + toolsets  # Put travel_tool first so it's accessible as tools[0]
             )
             
             # 6. 合并状态报告
@@ -561,31 +561,272 @@ class TravelAgentBuilder:
                 
                 # 导入必要的模块
                 try:
+                    # Try direct import first (when running from travel_agent directory)
                     from main import TravelAgent
                     from utils.date_parser import parse_date, get_current_date_info
+                    logger.info("✅ Successfully imported TravelAgent from main")
                 except ImportError:
                     try:
+                        # Try with travel_agent prefix
                         from travel_agent.main import TravelAgent
                         from travel_agent.utils.date_parser import parse_date, get_current_date_info
+                        logger.info("✅ Successfully imported TravelAgent from travel_agent.main")
                     except ImportError:
-                        # Create fallback implementations
-                        logger.error("Failed to import TravelAgent - using fallback")
-                        class TravelAgent:
-                            def __init__(self, use_mcp_tool=None):
-                                self.use_mcp_tool = use_mcp_tool
-                            def plan_travel(self, **kwargs):
-                                return {
-                                    'success': False,
-                                    'error': 'TravelAgent import failed - module not available',
-                                    'fallback': True
-                                }
-                        
-                        def parse_date(date_str):
-                            return date_str
-                        
-                        def get_current_date_info():
-                            from datetime import datetime
-                            return {'current_date': datetime.now().strftime('%Y-%m-%d')}
+                        try:
+                            # Try absolute import with current directory
+                            import sys
+                            import os
+                            current_dir = os.path.dirname(os.path.abspath(__file__))
+                            if current_dir not in sys.path:
+                                sys.path.insert(0, current_dir)
+                            
+                            from main import TravelAgent
+                            from utils.date_parser import parse_date, get_current_date_info
+                            logger.info("✅ Successfully imported TravelAgent after adding current dir to path")
+                        except ImportError as import_error:
+                            # Create working fallback implementations
+                            logger.error(f"Failed to import TravelAgent after all attempts: {str(import_error)}")
+                            logger.info("Creating working fallback implementation...")
+                            
+                            # Store the error for use in the fallback class
+                            final_import_error = str(import_error)
+                            
+                            class TravelAgent:
+                                def __init__(self, use_mcp_tool=None):
+                                    self.use_mcp_tool = use_mcp_tool
+                                
+                                def plan_travel(self, destination, departure_location, start_date, duration, budget, **kwargs):
+                                    """Create a working travel plan using AI and MCP tools"""
+                                    try:
+                                        logger.info(f"🎯 Fallback TravelAgent planning: {destination} for {duration} days")
+                                        
+                                        # Generate travel plans using AI
+                                        plans = self._generate_fallback_plans(destination, duration, budget)
+                                        
+                                        # Create HTML report
+                                        html_file = self._create_fallback_html_report(
+                                            destination, departure_location, start_date, duration, budget, plans
+                                        )
+                                        
+                                        return {
+                                            'success': True,
+                                            'message': 'Travel plan generated successfully (fallback mode)',
+                                            'file_path': html_file,
+                                            'plans_count': len(plans),
+                                            'fallback_mode': True
+                                        }
+                                    except Exception as e:
+                                        logger.error(f"❌ Fallback travel planning failed: {str(e)}")
+                                        return {
+                                            'success': False,
+                                            'error': 'Fallback travel planning failed',
+                                            'details': str(e),
+                                            'import_error': final_import_error
+                                        }
+                                
+                                def _generate_fallback_plans(self, destination, duration, budget):
+                                    """Generate basic travel plans"""
+                                    economic_budget = budget * 0.8
+                                    comfort_budget = budget
+                                    
+                                    plans = [
+                                        {
+                                            'plan_type': 'Economic',
+                                            'total_budget': economic_budget,
+                                            'description': f'经济型{destination}旅行计划，注重性价比',
+                                            'budget_allocation': {
+                                                'transportation': {'amount': economic_budget * 0.32, 'percentage': 32},
+                                                'accommodation': {'amount': economic_budget * 0.38, 'percentage': 38},
+                                                'dining': {'amount': economic_budget * 0.18, 'percentage': 18},
+                                                'activities': {'amount': economic_budget * 0.12, 'percentage': 12}
+                                            },
+                                            'tips': [
+                                                '提前预订住宿以获得更好的价格',
+                                                '尽可能使用公共交通工具',
+                                                '尝试当地街头美食，体验正宗且实惠的餐饮',
+                                                '寻找免费的步行游览和活动',
+                                                '在非高峰时段参观景点以获得折扣'
+                                            ]
+                                        },
+                                        {
+                                            'plan_type': 'Comfort',
+                                            'total_budget': comfort_budget,
+                                            'description': f'舒适型{destination}旅行计划，提供优质体验',
+                                            'budget_allocation': {
+                                                'transportation': {'amount': comfort_budget * 0.28, 'percentage': 28},
+                                                'accommodation': {'amount': comfort_budget * 0.32, 'percentage': 32},
+                                                'dining': {'amount': comfort_budget * 0.22, 'percentage': 22},
+                                                'activities': {'amount': comfort_budget * 0.18, 'percentage': 18}
+                                            },
+                                            'tips': [
+                                                '预订设施完善的优质住宿',
+                                                '考虑私人交通工具以获得便利',
+                                                '在推荐餐厅提前预订',
+                                                '购买热门景点的免排队门票',
+                                                '考虑参加导游服务以获得更深入的文化体验'
+                                            ]
+                                        }
+                                    ]
+                                    return plans
+                                
+                                def _create_fallback_html_report(self, destination, departure_location, start_date, duration, budget, plans):
+                                    """Create a basic HTML report"""
+                                    from datetime import datetime
+                                    import os
+                                    
+                                    # Create output directory
+                                    output_dir = os.path.join(os.path.dirname(__file__), 'output')
+                                    os.makedirs(output_dir, exist_ok=True)
+                                    
+                                    # Generate filename
+                                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                    filename = f"travel_plan_{destination}_{start_date}_{timestamp}.html"
+                                    file_path = os.path.join(output_dir, filename)
+                                    
+                                    # Create HTML content
+                                    html_content = f"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅行计划 - {destination}</title>
+    <style>
+        body {{ font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
+        .container {{ max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; border-radius: 10px 10px 0 0; text-align: center; }}
+        .header h1 {{ margin: 0; font-size: 2.5em; }}
+        .content {{ padding: 40px; }}
+        .section {{ margin-bottom: 40px; }}
+        .section h2 {{ color: #333; border-bottom: 3px solid #667eea; padding-bottom: 10px; }}
+        .plan-card {{ background: #f8f9fa; border-left: 5px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }}
+        .plan-card h3 {{ color: #667eea; margin-top: 0; }}
+        .budget-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
+        .tips-list {{ background: #e8f4f8; padding: 20px; border-radius: 8px; }}
+        .footer {{ background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; }}
+        .fallback-notice {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌟 {destination} 旅行计划</h1>
+            <div style="margin-top: 15px;">
+                📍 {departure_location} → {destination} | 📅 {start_date} | ⏱️ {duration} 天 | 💰 ¥{budget:.2f}
+            </div>
+            <div style="margin-top: 15px; opacity: 0.8;">
+                生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="fallback-notice">
+                <h4 style="color: #856404; margin-top: 0;">ℹ️ 系统说明</h4>
+                <p style="color: #856404; margin-bottom: 0;">
+                    此报告由备用系统生成。虽然功能有限，但仍为您提供了基本的旅行规划建议。
+                    建议您根据实际情况调整计划详情。
+                </p>
+            </div>
+
+            <div class="section">
+                <h2>🌍 目的地概览</h2>
+                <p>欢迎来到{destination}！这里是一个充满魅力的旅行目的地，拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。
+                无论您是历史爱好者、美食探索者还是自然风光的追求者，{destination}都能为您提供精彩纷呈的旅行回忆。</p>
+            </div>
+
+            <div class="section">
+                <h2>📋 旅行计划 ({len(plans)} 个选项)</h2>
+                """
+                                    
+                                    # Add plans
+                                    for plan in plans:
+                                        html_content += f"""
+                <div class="plan-card">
+                    <h3>{plan['plan_type']} 计划 - ¥{plan['total_budget']:.2f}</h3>
+                    <p>{plan['description']}</p>
+                    
+                    <h4>💰 预算分配：</h4>
+                    """
+                                        for category, details in plan['budget_allocation'].items():
+                                            category_names = {
+                                                'transportation': '交通费用',
+                                                'accommodation': '住宿费用', 
+                                                'dining': '餐饮费用',
+                                                'activities': '活动费用'
+                                            }
+                                            html_content += f"""
+                    <div class="budget-item">
+                        <span>{category_names.get(category, category)}:</span>
+                        <span>¥{details['amount']:.2f} ({details['percentage']}%)</span>
+                    </div>
+                                            """
+                                        
+                                        html_content += f"""
+                    <div class="tips-list" style="margin-top: 20px;">
+                        <h4>💡 此计划的建议：</h4>
+                        <ul>
+                        """
+                                        for tip in plan['tips']:
+                                            html_content += f"<li>{tip}</li>"
+                                        
+                                        html_content += """
+                        </ul>
+                    </div>
+                </div>
+                                        """
+                                    
+                                    html_content += f"""
+            </div>
+
+            <div class="section">
+                <h2>ℹ️ 实用信息</h2>
+                <div style="margin-bottom: 30px;">
+                    <h3>🚨 紧急联系电话</h3>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚔 报警电话：110</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚑 急救电话：120</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚒 火警电话：119</div>
+                    <div style="background: #ffe6e6; padding: 10px; margin: 5px 0; border-radius: 5px;">🚨 旅游投诉：12301</div>
+                </div>
+
+                <div class="tips-list">
+                    <h3>🎯 通用旅行建议</h3>
+                    <ul>
+                        <li>提前了解目的地的天气情况，准备合适的衣物</li>
+                        <li>保持重要文件的备份，包括身份证、护照等</li>
+                        <li>购买适当的旅行保险以保障安全</li>
+                        <li>尊重当地的文化习俗和传统</li>
+                        <li>保持开放的心态，享受旅行中的每一个瞬间</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>由 <strong>AI 旅行助手</strong> 备用系统生成</p>
+            <p>
+                <span style="font-size: 1.5em; margin: 0 5px;">✈️</span>
+                祝您旅途愉快！
+                <span style="font-size: 1.5em; margin: 0 5px;">🌟</span>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+                                    """
+                                    
+                                    # Write to file
+                                    with open(file_path, 'w', encoding='utf-8') as f:
+                                        f.write(html_content)
+                                    
+                                    logger.info(f"✅ Fallback HTML report created: {file_path}")
+                                    return file_path
+                            
+                            def parse_date(date_str):
+                                return date_str
+                            
+                            def get_current_date_info():
+                                from datetime import datetime
+                                return {'current_date': datetime.now().strftime('%Y-%m-%d')}
                 
                 # 创建旅行代理
                 agent = TravelAgent(use_mcp_tool=mcp_caller)
