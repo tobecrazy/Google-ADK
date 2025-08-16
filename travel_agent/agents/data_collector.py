@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import requests
 from bs4 import BeautifulSoup
-import google.generativeai as genai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -21,12 +21,20 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from travel_agent.services.weather_service import WeatherService
-from travel_agent.services.attraction_service import AttractionService
-from travel_agent.services.transport_service import TransportService
-from travel_agent.services.accommodation_service import AccommodationService
-from travel_agent.services.restaurant_service import RestaurantService
-from travel_agent.utils.web_scraper import WebScraper
+try:
+    from travel_agent.services.weather_service import WeatherService
+    from travel_agent.services.attraction_service import AttractionService
+    from travel_agent.services.transport_service import TransportService
+    from travel_agent.services.accommodation_service import AccommodationService
+    from travel_agent.services.restaurant_service import RestaurantService
+    from travel_agent.utils.web_scraper import WebScraper
+except ImportError:
+    from services.weather_service import WeatherService
+    from services.attraction_service import AttractionService
+    from services.transport_service import TransportService
+    from services.accommodation_service import AccommodationService
+    from services.restaurant_service import RestaurantService
+    from utils.web_scraper import WebScraper
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +52,18 @@ class DataCollectorAgent:
         self.restaurant_service = RestaurantService()
         self.web_scraper = WebScraper()
         
-        # Initialize Gemini for intelligent data processing
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        # Initialize OpenRouter client for intelligent data processing
+        openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
+        if not openrouter_api_key:
+            logger.warning("OPENROUTER_API_KEY not found, AI features will be limited")
+            self.client = None
+            self.model = None
+        else:
+            self.client = OpenAI(
+                api_key=openrouter_api_key,
+                base_url="https://openrouter.ai/api/v1"
+            )
+            self.model = "moonshotai/kimi-k2:free"
         
         logger.info(f"Data Collector Agent initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
@@ -126,8 +143,6 @@ class DataCollectorAgent:
             Format as JSON with clear categories.
             """
             
-            response = self.model.generate_content(prompt)
-            
             # Basic fallback info
             basic_info = {
                 'name': destination,
@@ -141,13 +156,24 @@ class DataCollectorAgent:
                 'local_transport': ['Public Transit', 'Taxi', 'Walking']
             }
             
-            try:
-                # Try to parse AI response as structured data
-                ai_info = self._parse_ai_response(response.text)
-                if ai_info:
-                    basic_info.update(ai_info)
-            except:
-                pass
+            if self.client and self.model:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "你是一位专业的旅行顾问，提供准确的目的地信息。请用中文回答。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=1500
+                    )
+                    
+                    # Try to parse AI response as structured data
+                    ai_info = self._parse_ai_response(response.choices[0].message.content)
+                    if ai_info:
+                        basic_info.update(ai_info)
+                except Exception as ai_error:
+                    logger.warning(f"AI destination info failed: {ai_error}")
                 
             return basic_info
             
@@ -260,10 +286,25 @@ class DataCollectorAgent:
             请用中文回答，提供多样化的选择。
             """
             
-            response = self.model.generate_content(prompt)
-            
-            # Parse and structure the response
-            dining_data = self._parse_dining_recommendations(response.text, budget)
+            if self.client and self.model:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "你是一位专业的美食顾问，熟悉各地餐厅和美食文化。请用中文回答。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
+                    
+                    # Parse and structure the response
+                    dining_data = self._parse_dining_recommendations(response.choices[0].message.content, budget)
+                except Exception as ai_error:
+                    logger.warning(f"AI dining recommendations failed: {ai_error}")
+                    dining_data = self._generate_fallback_restaurants((budget * 0.20) / 7)
+            else:
+                dining_data = self._generate_fallback_restaurants((budget * 0.20) / 7)
             
             # Add fallback indicator
             for restaurant in dining_data:
@@ -291,10 +332,25 @@ class DataCollectorAgent:
             8. Cultural events or festivals
             """
             
-            response = self.model.generate_content(prompt)
+            practical_tips = f"General travel tips for {destination}"
+            
+            if self.client and self.model:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "你是一位专业的旅行顾问，提供实用的当地旅行信息和建议。请用中文回答。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=1500
+                    )
+                    practical_tips = response.choices[0].message.content
+                except Exception as ai_error:
+                    logger.warning(f"AI local info failed: {ai_error}")
             
             return {
-                'practical_tips': response.text,
+                'practical_tips': practical_tips,
                 'emergency_numbers': ['Police: Local Number', 'Medical: Local Number'],
                 'useful_phrases': ['Hello', 'Thank you', 'Excuse me', 'How much?'],
                 'shopping_areas': ['Main Shopping District', 'Local Markets'],
@@ -369,10 +425,25 @@ class DataCollectorAgent:
             8. Booking timing recommendations
             """
             
-            response = self.model.generate_content(prompt)
+            ai_recommendations = f"Additional insights for {destination} travel planning"
+            
+            if self.client and self.model:
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "你是一位经验丰富的旅行专家，提供深度的旅行洞察和建议。请用中文回答。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
+                    ai_recommendations = response.choices[0].message.content
+                except Exception as ai_error:
+                    logger.warning(f"AI insights enrichment failed: {ai_error}")
             
             data['ai_insights'] = {
-                'recommendations': response.text,
+                'recommendations': ai_recommendations,
                 'generated_at': datetime.now().isoformat()
             }
             

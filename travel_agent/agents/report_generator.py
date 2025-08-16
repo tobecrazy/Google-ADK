@@ -106,13 +106,30 @@ class ReportGeneratorAgent:
     ) -> Dict[str, Any]:
         """Prepare structured data for the HTML report."""
         try:
-            # Extract key information
+            logger.info(f"Preparing report data for {destination}")
+            logger.info(f"Input parameters: destination={destination}, start_date={start_date}, duration={duration}, budget={budget}")
+            logger.info(f"Travel data keys: {list(travel_data.keys()) if travel_data else 'None'}")
+            logger.info(f"Travel plans count: {len(travel_plans) if travel_plans else 0}")
+            
+            # Extract key information with detailed logging
             destination_info = travel_data.get('destination_info', {})
+            logger.info(f"Destination info: {destination_info.get('name', 'No name')} - {len(str(destination_info.get('description', '')))}")
+            
             weather_data = travel_data.get('weather_data', {})
+            logger.info(f"Weather data success: {weather_data.get('success', False)}")
+            
             attractions = travel_data.get('attractions', [])
+            logger.info(f"Attractions count: {len(attractions)}")
+            
             accommodations = travel_data.get('accommodations', [])
+            logger.info(f"Accommodations count: {len(accommodations)}")
+            
             dining = travel_data.get('dining', [])
+            logger.info(f"Dining options count: {len(dining)}")
+            
             transportation = travel_data.get('transportation', {})
+            logger.info(f"Transportation data keys: {list(transportation.keys()) if transportation else 'None'}")
+            
             local_info = travel_data.get('local_info', {})
             ai_insights = travel_data.get('ai_insights', {})
             
@@ -127,13 +144,18 @@ class ReportGeneratorAgent:
                 'current_weather': weather_data.get('current_weather', {})
             }
             
+            # Ensure we have valid travel plans
+            if not travel_plans or len(travel_plans) == 0:
+                logger.warning("No travel plans provided, creating default plans")
+                travel_plans = self._create_default_travel_plans(budget, duration)
+            
             report_data = {
-                # Header Information
+                # Header Information - CRITICAL: These must match the input parameters exactly
                 'title': f'Travel Plan for {destination}',
-                'destination': destination,
-                'start_date': start_date,
-                'duration': duration,
-                'budget': budget,
+                'destination': destination,  # Use the exact input parameter
+                'start_date': start_date,    # Use the exact input parameter
+                'duration': duration,        # Use the exact input parameter
+                'budget': budget,           # Use the exact input parameter
                 'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 
                 # Destination Overview
@@ -141,7 +163,7 @@ class ReportGeneratorAgent:
                 'weather_forecast': weather_forecast,
                 'weather_info': weather_info,
                 
-                # Travel Plans
+                # Travel Plans - CRITICAL: Ensure we have plans
                 'travel_plans': travel_plans,
                 'plans_count': len(travel_plans),
                 
@@ -151,14 +173,14 @@ class ReportGeneratorAgent:
                 'local_transport': transportation.get('local_transport', {}),
                 
                 # Attractions & Activities
-                'attractions': attractions[:10],  # Top 10 attractions
+                'attractions': attractions[:10] if attractions else [],  # Top 10 attractions
                 'attractions_count': len(attractions),
                 
                 # Accommodations
-                'accommodations': accommodations[:5],  # Top 5 accommodations
+                'accommodations': accommodations[:5] if accommodations else [],  # Top 5 accommodations
                 
                 # Dining
-                'dining_options': dining[:8],  # Top 8 dining options
+                'dining_options': dining[:8] if dining else [],  # Top 8 dining options
                 
                 # Local Information
                 'local_info': local_info,
@@ -180,11 +202,32 @@ class ReportGeneratorAgent:
                 }
             }
             
+            # Log the final report data structure for debugging
+            logger.info(f"Final report data prepared:")
+            logger.info(f"  - Title: {report_data['title']}")
+            logger.info(f"  - Destination: {report_data['destination']}")
+            logger.info(f"  - Start date: {report_data['start_date']}")
+            logger.info(f"  - Duration: {report_data['duration']}")
+            logger.info(f"  - Budget: {report_data['budget']}")
+            logger.info(f"  - Plans count: {report_data['plans_count']}")
+            logger.info(f"  - Generation date: {report_data['generation_date']}")
+            
             return report_data
             
         except Exception as e:
-            logger.error(f"Error preparing report data: {str(e)}")
-            return {}
+            logger.error(f"Error preparing report {str(e)}", exc_info=True)
+            # Return a minimal but valid report data structure
+            return {
+                'title': f'Travel Plan for {destination}',
+                'destination': destination,
+                'start_date': start_date,
+                'duration': duration,
+                'budget': budget,
+                'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'travel_plans': [],
+                'plans_count': 0,
+                'error': str(e)
+            }
     
     def _enhance_report_content(self, report_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use AI to enhance report content with additional insights."""
@@ -296,6 +339,61 @@ class ReportGeneratorAgent:
             ],
             'ai_insights': f'基于您的{destination}旅行计划，我们为您精心准备了个性化的旅行建议。建议您提前了解当地的文化背景和历史，这将让您的旅行体验更加丰富。在行程安排上，建议将热门景点和小众景点相结合，既能欣赏到经典美景，又能发现独特的当地体验。美食方面，不要错过当地的特色菜肴和街头小食，这些往往是最能体现当地文化的美味。住宿选择上，可以考虑具有当地特色的民宿或精品酒店，获得更加authentic的体验。交通方面，建议使用当地的公共交通工具，既经济实惠又能更好地融入当地生活。最后，保持开放的心态，与当地人交流，您会发现许多意想不到的精彩体验。'
         }
+    
+    def _create_default_travel_plans(self, budget: float, duration: int) -> List[Dict[str, Any]]:
+        """Create default travel plans when none are provided."""
+        try:
+            logger.info(f"Creating default travel plans for budget {budget} and duration {duration}")
+            
+            # Create two basic plans: Economic and Comfort
+            economic_budget = budget * 0.8
+            comfort_budget = budget
+            
+            plans = [
+                {
+                    'plan_type': 'Economic',
+                    'description': 'Budget-friendly travel plan focusing on value and essential experiences',
+                    'total_budget': economic_budget,
+                    'budget_allocation': {
+                        'transportation': {'amount': economic_budget * 0.32, 'percentage': 32},
+                        'accommodation': {'amount': economic_budget * 0.38, 'percentage': 38},
+                        'dining': {'amount': economic_budget * 0.18, 'percentage': 18},
+                        'activities': {'amount': economic_budget * 0.12, 'percentage': 12}
+                    },
+                    'tips': [
+                        'Book accommodations in advance for better rates',
+                        'Use public transportation when possible',
+                        'Try local street food for authentic and affordable meals',
+                        'Look for free walking tours and activities',
+                        'Visit attractions during off-peak hours for discounts'
+                    ]
+                },
+                {
+                    'plan_type': 'Comfort',
+                    'description': 'Comfortable travel plan with premium experiences and convenience',
+                    'total_budget': comfort_budget,
+                    'budget_allocation': {
+                        'transportation': {'amount': comfort_budget * 0.28, 'percentage': 28},
+                        'accommodation': {'amount': comfort_budget * 0.32, 'percentage': 32},
+                        'dining': {'amount': comfort_budget * 0.22, 'percentage': 22},
+                        'activities': {'amount': comfort_budget * 0.18, 'percentage': 18}
+                    },
+                    'tips': [
+                        'Book premium accommodations with good amenities',
+                        'Consider private transportation for convenience',
+                        'Make reservations at recommended restaurants',
+                        'Purchase skip-the-line tickets for popular attractions',
+                        'Consider guided tours for deeper cultural insights'
+                    ]
+                }
+            ]
+            
+            logger.info(f"Created {len(plans)} default travel plans")
+            return plans
+            
+        except Exception as e:
+            logger.error(f"Error creating default travel plans: {str(e)}")
+            return []
     
     def _create_budget_summary(self, travel_plans: List[Dict[str, Any]], total_budget: float) -> Dict[str, Any]:
         """Create a comprehensive budget summary."""

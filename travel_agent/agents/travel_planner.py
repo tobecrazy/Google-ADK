@@ -8,7 +8,7 @@ import logging
 import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
-import google.generativeai as genai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -30,9 +30,18 @@ class TravelPlannerAgent:
         """Initialize the travel planner."""
         self.budget_calculator = BudgetCalculator()
         
-        # Initialize Gemini for intelligent planning
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        # Initialize OpenRouter client for intelligent planning
+        openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
+        if not openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+        
+        self.client = OpenAI(
+            api_key=openrouter_api_key,
+            base_url="https://openrouter.ai/api/v1"
+        )
+        
+        # Use a working free model from OpenRouter
+        self.model = "moonshotai/kimi-k2:free"
         
         # Date mappings for Chinese relative dates
         self.date_mappings = {
@@ -381,10 +390,19 @@ class TravelPlannerAgent:
             请用中文回复所有内容。
             """
             
-            response = self.model.generate_content(prompt)
+            # Use OpenRouter API to generate content
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "你是一位专业的旅行规划师，擅长制定详细、实用的旅行行程安排。请用中文回答，提供具体的时间安排、地点推荐和费用估算。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=3000
+            )
             
             # Parse the AI response into structured itinerary
-            itinerary = self._parse_itinerary_response(response.text, plan_type)
+            itinerary = self._parse_itinerary_response(response.choices[0].message.content, plan_type)
             
             return itinerary
             

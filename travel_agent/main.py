@@ -83,10 +83,11 @@ class TravelAgent:
             Dict containing plan status and output file path
         """
         try:
-            logger.info(f"Starting travel planning for {destination}")
+            logger.info(f"=== Starting travel planning for {destination} ===")
+            logger.info(f"Parameters: destination={destination}, departure={departure_location}, start_date={start_date}, duration={duration}, budget={budget}")
             
             # Step 1: Collect destination data
-            logger.info("Collecting destination data...")
+            logger.info("Step 1: Collecting destination data...")
             travel_data = self.data_collector.collect_travel_data(
                 destination=destination,
                 departure_location=departure_location,
@@ -95,7 +96,16 @@ class TravelAgent:
                 budget=budget
             )
             
-            if not travel_data.get('success'):
+            logger.info(f"Data collection result: success={travel_data.get('success')}")
+            if travel_data.get('success'):
+                data_keys = list(travel_data.get('data', {}).keys())
+                logger.info(f"Collected data keys: {data_keys}")
+                # Log some sample data to verify collection
+                if 'destination_info' in travel_data.get('data', {}):
+                    dest_info = travel_data['data']['destination_info']
+                    logger.info(f"Destination info sample: name={dest_info.get('name')}, description length={len(str(dest_info.get('description', '')))}")
+            else:
+                logger.error(f"Data collection failed: {travel_data.get('error')}")
                 return {
                     'success': False,
                     'error': 'Failed to collect travel data',
@@ -103,13 +113,20 @@ class TravelAgent:
                 }
             
             # Step 2: Generate travel plans
-            logger.info("Generating travel plans...")
+            logger.info("Step 2: Generating travel plans...")
             travel_plans = self.travel_planner.generate_plans(
                 travel_data=travel_data['data'],
                 preferences=preferences or {}
             )
             
-            if not travel_plans.get('success'):
+            logger.info(f"Travel plans generation result: success={travel_plans.get('success')}")
+            if travel_plans.get('success'):
+                plans_count = len(travel_plans.get('plans', []))
+                logger.info(f"Generated {plans_count} travel plans")
+                for i, plan in enumerate(travel_plans.get('plans', [])):
+                    logger.info(f"Plan {i+1}: type={plan.get('plan_type')}, budget={plan.get('total_budget')}")
+            else:
+                logger.error(f"Travel plans generation failed: {travel_plans.get('error')}")
                 return {
                     'success': False,
                     'error': 'Failed to generate travel plans',
@@ -117,7 +134,9 @@ class TravelAgent:
                 }
             
             # Step 3: Generate HTML report
-            logger.info("Generating HTML report...")
+            logger.info("Step 3: Generating HTML report...")
+            logger.info(f"Passing to report generator: destination={destination}, start_date={start_date}, duration={duration}, budget={budget}")
+            
             report_result = self.report_generator.generate_html_report(
                 travel_data=travel_data['data'],
                 travel_plans=travel_plans['plans'],
@@ -127,6 +146,7 @@ class TravelAgent:
                 budget=budget
             )
             
+            logger.info(f"HTML report generation result: success={report_result.get('success')}")
             if report_result.get('success'):
                 logger.info(f"Travel plan generated successfully: {report_result['file_path']}")
                 return {
@@ -136,6 +156,7 @@ class TravelAgent:
                     'plans_count': len(travel_plans['plans'])
                 }
             else:
+                logger.error(f"HTML report generation failed: {report_result.get('error')}")
                 return {
                     'success': False,
                     'error': 'Failed to generate HTML report',
@@ -143,7 +164,7 @@ class TravelAgent:
                 }
                 
         except Exception as e:
-            logger.error(f"Error in travel planning: {str(e)}")
+            logger.error(f"Error in travel planning: {str(e)}", exc_info=True)
             return {
                 'success': False,
                 'error': 'Unexpected error occurred',
