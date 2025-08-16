@@ -5,3 +5,4 @@ multi_tool_agent/.env
 travel_agent/.env
 *.pyc
 *.html
+*.md

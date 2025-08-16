@@ -1045,8 +1045,10 @@
                     <div class="card">
                         <div class="card-content">
                             <h4>{{ details.type }}</h4>
-                            {% if details.estimated_cost is mapping %}
+                            {% if details.estimated_cost.min is defined %}
                             <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost.min) }} - {{ "%.0f"|format(details.estimated_cost.max) }}</p>
+                            {% elif details.estimated_cost.total is defined %}
+                            <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost.total) }}</p>
                             {% else %}
                             <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost) }}</p>
                             {% endif %}

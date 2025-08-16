@@ -277,3 +277,4 @@ def create_travel_planning_tool(
 if __name__ == "__main__":
     # Example usage for testing
     agent = TravelAgent()
+    print(f"Planning result: Start Travel Agent")
