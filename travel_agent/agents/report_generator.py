@@ -74,6 +74,7 @@ class ReportGeneratorAgent:
             
             # Generate enhanced content using AI
             enhanced_data = self._enhance_report_content(report_data)
+            logger.info(f"Enhanced data before rendering: {enhanced_data}")
             
             # Render HTML template
             html_content = self._render_html_template(enhanced_data)
@@ -84,11 +85,78 @@ class ReportGeneratorAgent:
             return {
                 'success': True,
                 'file_path': file_path,
-                'message': f'HTML report generated successfully: {file_path}'
+                'message': f'HTML report generated successfully: {file_path}',
+                'report_data': enhanced_data
             }
             
         except Exception as e:
             logger.error(f"Error generating HTML report: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'file_path': None,
+                'report_data': None
+            }
+    
+    def generate_markdown_report(
+        self,
+        report_data: Dict[str, Any],
+        destination: str,
+        start_date: str
+    ) -> Dict[str, Any]:
+        """
+        Generate a comprehensive Markdown travel report.
+
+        Args:
+            report_data: The same data used for the HTML report.
+            destination: Destination name
+            start_date: Travel start date
+
+        Returns:
+            Dict containing generation result and file path
+        """
+        try:
+            logger.info(f"Generating Markdown report for {destination}")
+
+            # Create a simple Markdown representation of the report data
+            markdown_content = f"# {report_data.get('title', 'Travel Plan')}\n\n"
+            markdown_content += f"**Destination:** {report_data.get('destination', 'N/A')}\n"
+            markdown_content += f"**Date:** {report_data.get('start_date', 'N/A')}\n"
+            markdown_content += f"**Duration:** {report_data.get('duration', 'N/A')} days\n"
+            markdown_content += f"**Budget:** ¥{report_data.get('budget', 0):.2f}\n\n"
+
+            markdown_content += "## Travel Plans\n\n"
+            for plan in report_data.get('travel_plans', []):
+                markdown_content += f"### {plan.get('plan_type', 'N/A')} Plan\n"
+                markdown_content += f"- **Total Budget:** ¥{plan.get('total_budget', 0):.2f}\n"
+                markdown_content += f"- **Description:** {plan.get('description', 'N/A')}\n"
+                markdown_content += "**Budget Allocation:**\n"
+                for category, details in plan.get('budget_allocation', {}).items():
+                    markdown_content += f"  - {category.title()}: ¥{details.get('amount', 0):.2f} ({details.get('percentage', 0)}%)\n"
+                markdown_content += "**Tips:**\n"
+                for tip in plan.get('tips', []):
+                    markdown_content += f"  - {tip}\n"
+                markdown_content += "\n"
+
+            # Save to file
+            output_dir = os.path.join(os.path.dirname(__file__), '..', 'output')
+            os.makedirs(output_dir, exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"travel_plan_{destination.replace(' ', '_')}_{start_date}_{timestamp}.md"
+            file_path = os.path.join(output_dir, filename)
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            logger.info(f"Markdown report saved to: {file_path}")
+            return {
+                'success': True,
+                'file_path': file_path,
+                'message': f'Markdown report generated successfully: {file_path}'
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating Markdown report: {str(e)}")
             return {
                 'success': False,
                 'error': str(e),
@@ -315,7 +383,9 @@ class ReportGeneratorAgent:
         except Exception as e:
             logger.warning(f"Error enhancing report content: {str(e)}")
             # Return default Chinese content
-            return self._get_default_chinese_content(report_data)
+            default_content = self._get_default_chinese_content(report_data)
+            report_data.update(default_content)
+            return report_data
     
     def _parse_enhanced_content(self, ai_response: str, destination: str = '') -> Dict[str, Any]:
         """Parse AI-generated enhanced content."""
@@ -531,13 +601,17 @@ class ReportGeneratorAgent:
     def _render_html_template(self, report_data: Dict[str, Any]) -> str:
         """Render the HTML template with report data."""
         try:
-            # Try to load custom template first
+            # Try to load custom template first with better error handling
             try:
                 template = self.jinja_env.get_template('travel_plan.html')
+                logger.info("Successfully loaded travel_plan.html template")
                 return template.render(**report_data)
-            except:
-                # Fall back to inline template if file doesn't exist
-                return self._render_inline_template(report_data)
+            except Exception as template_error:
+                logger.error(f"Failed to load or render travel_plan.html template: {str(template_error)}")
+                logger.error(f"Template directory: {os.path.join(os.path.dirname(__file__), '..', 'templates')}")
+                logger.error(f"Available templates: {self.jinja_env.list_templates()}")
+                # Instead of falling back to inline template, try to fix the issue
+                raise template_error
                 
         except Exception as e:
             logger.error(f"Error rendering HTML template: {str(e)}")
@@ -937,8 +1011,7 @@ class ReportGeneratorAgent:
             os.makedirs(output_dir, exist_ok=True)
             
             # Generate filename
-            safe_destination = "".join(c for c in destination if c.isalnum() or c in (' ', '-', '_')).rstrip()
-            safe_destination = safe_destination.replace(' ', '_')
+            safe_destination = destination.replace(' ', '_')
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"travel_plan_{safe_destination}_{start_date}_{timestamp}.html"
             

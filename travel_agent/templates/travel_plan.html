@@ -1045,7 +1045,11 @@
                     <div class="card">
                         <div class="card-content">
                             <h4>{{ details.type }}</h4>
+                            {% if details.estimated_cost is mapping %}
+                            <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost.min) }} - {{ "%.0f"|format(details.estimated_cost.max) }}</p>
+                            {% else %}
                             <p><strong>预估费用：</strong> ¥{{ "%.0f"|format(details.estimated_cost) }}</p>
+                            {% endif %}
                             <p><strong>行程时间：</strong> {{ details.duration }}</p>
                             
                             <div style="margin: 20px 0;">

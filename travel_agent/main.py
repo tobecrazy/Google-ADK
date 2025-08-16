@@ -149,10 +149,26 @@ class TravelAgent:
             logger.info(f"HTML report generation result: success={report_result.get('success')}")
             if report_result.get('success'):
                 logger.info(f"Travel plan generated successfully: {report_result['file_path']}")
+
+                # Step 4: Generate Markdown report
+                logger.info("Step 4: Generating Markdown report...")
+                markdown_report_result = self.report_generator.generate_markdown_report(
+                    report_data=report_result['report_data'],
+                    destination=destination,
+                    start_date=start_date
+                )
+
+                if markdown_report_result.get('success'):
+                    logger.info(f"Markdown report generated successfully: {markdown_report_result['file_path']}")
+                    report_result['markdown_file_path'] = markdown_report_result['file_path']
+                else:
+                    logger.error(f"Markdown report generation failed: {markdown_report_result.get('error')}")
+                
                 return {
                     'success': True,
                     'message': 'Travel plan generated successfully',
                     'file_path': report_result['file_path'],
+                    'markdown_file_path': report_result.get('markdown_file_path'),
                     'plans_count': len(travel_plans['plans'])
                 }
             else:
@@ -261,4 +277,3 @@ def create_travel_planning_tool(
 if __name__ == "__main__":
     # Example usage for testing
     agent = TravelAgent()
-    print(f"Planning result: Start Travel Agent")
