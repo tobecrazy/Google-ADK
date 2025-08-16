@@ -111,27 +111,44 @@ class ReportGeneratorAgent:
             logger.info(f"Travel data keys: {list(travel_data.keys()) if travel_data else 'None'}")
             logger.info(f"Travel plans count: {len(travel_plans) if travel_plans else 0}")
             
-            # Extract key information with detailed logging
-            destination_info = travel_data.get('destination_info', {})
+            # Validate input parameters - CRITICAL FIX
+            if not destination or destination.strip() == '':
+                destination = '未知目的地'
+                logger.warning("Empty destination provided, using fallback")
+            
+            if not start_date or start_date.strip() == '':
+                start_date = datetime.now().strftime('%Y-%m-%d')
+                logger.warning("Empty start_date provided, using current date")
+            
+            if not duration or duration <= 0:
+                duration = 7
+                logger.warning("Invalid duration provided, using 7 days")
+            
+            if not budget or budget <= 0:
+                budget = 5000.0
+                logger.warning("Invalid budget provided, using 5000")
+            
+            # Extract key information with detailed logging and validation
+            destination_info = travel_data.get('destination_info', {}) if travel_data else {}
             logger.info(f"Destination info: {destination_info.get('name', 'No name')} - {len(str(destination_info.get('description', '')))}")
             
-            weather_data = travel_data.get('weather_data', {})
+            weather_data = travel_data.get('weather_data', {}) if travel_data else {}
             logger.info(f"Weather data success: {weather_data.get('success', False)}")
             
-            attractions = travel_data.get('attractions', [])
+            attractions = travel_data.get('attractions', []) if travel_data else []
             logger.info(f"Attractions count: {len(attractions)}")
             
-            accommodations = travel_data.get('accommodations', [])
+            accommodations = travel_data.get('accommodations', []) if travel_data else []
             logger.info(f"Accommodations count: {len(accommodations)}")
             
-            dining = travel_data.get('dining', [])
+            dining = travel_data.get('dining', []) if travel_data else []
             logger.info(f"Dining options count: {len(dining)}")
             
-            transportation = travel_data.get('transportation', {})
+            transportation = travel_data.get('transportation', {}) if travel_data else {}
             logger.info(f"Transportation data keys: {list(transportation.keys()) if transportation else 'None'}")
             
-            local_info = travel_data.get('local_info', {})
-            ai_insights = travel_data.get('ai_insights', {})
+            local_info = travel_data.get('local_info', {}) if travel_data else {}
+            ai_insights = travel_data.get('ai_insights', {}) if travel_data else {}
             
             # Process weather data - ensure we always have weather information to display
             weather_forecast = weather_data.get('forecast', [])
@@ -144,18 +161,33 @@ class ReportGeneratorAgent:
                 'current_weather': weather_data.get('current_weather', {})
             }
             
-            # Ensure we have valid travel plans
+            # CRITICAL FIX: Ensure we have valid travel plans
             if not travel_plans or len(travel_plans) == 0:
                 logger.warning("No travel plans provided, creating default plans")
                 travel_plans = self._create_default_travel_plans(budget, duration)
+                logger.info(f"Created {len(travel_plans)} default travel plans")
+            
+            # Validate travel plans structure
+            validated_plans = []
+            for plan in travel_plans:
+                if isinstance(plan, dict) and plan.get('plan_type'):
+                    validated_plans.append(plan)
+                else:
+                    logger.warning(f"Invalid plan structure: {plan}")
+            
+            if not validated_plans:
+                logger.error("No valid travel plans after validation, creating emergency fallback")
+                validated_plans = self._create_emergency_fallback_plans(budget, duration)
+            
+            travel_plans = validated_plans
             
             report_data = {
                 # Header Information - CRITICAL: These must match the input parameters exactly
-                'title': f'Travel Plan for {destination}',
-                'destination': destination,  # Use the exact input parameter
-                'start_date': start_date,    # Use the exact input parameter
-                'duration': duration,        # Use the exact input parameter
-                'budget': budget,           # Use the exact input parameter
+                'title': f'{destination}旅行计划',
+                'destination': destination,  # Use the validated input parameter
+                'start_date': start_date,    # Use the validated input parameter
+                'duration': duration,        # Use the validated input parameter
+                'budget': budget,           # Use the validated input parameter
                 'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 
                 # Destination Overview
@@ -212,20 +244,38 @@ class ReportGeneratorAgent:
             logger.info(f"  - Plans count: {report_data['plans_count']}")
             logger.info(f"  - Generation date: {report_data['generation_date']}")
             
+            # CRITICAL: Validate that all required fields are present and not empty
+            required_fields = ['title', 'destination', 'start_date', 'duration', 'budget', 'travel_plans']
+            for field in required_fields:
+                if field not in report_data or report_data[field] is None:
+                    logger.error(f"Missing required field: {field}")
+                    raise ValueError(f"Missing required field: {field}")
+                if field == 'travel_plans' and len(report_data[field]) == 0:
+                    logger.error("No travel plans in final report data")
+                    raise ValueError("No travel plans in final report data")
+            
             return report_data
             
         except Exception as e:
-            logger.error(f"Error preparing report {str(e)}", exc_info=True)
-            # Return a minimal but valid report data structure
+            logger.error(f"Error preparing report data: {str(e)}", exc_info=True)
+            # Return a minimal but VALID report data structure with emergency fallback
+            emergency_plans = self._create_emergency_fallback_plans(budget if budget and budget > 0 else 5000, duration if duration and duration > 0 else 7)
             return {
-                'title': f'Travel Plan for {destination}',
-                'destination': destination,
-                'start_date': start_date,
-                'duration': duration,
-                'budget': budget,
+                'title': f'{destination if destination else "旅行目的地"}旅行计划',
+                'destination': destination if destination else '旅行目的地',
+                'start_date': start_date if start_date else datetime.now().strftime('%Y-%m-%d'),
+                'duration': duration if duration and duration > 0 else 7,
+                'budget': budget if budget and budget > 0 else 5000,
                 'generation_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'travel_plans': [],
-                'plans_count': 0,
+                'travel_plans': emergency_plans,
+                'plans_count': len(emergency_plans),
+                'weather_forecast': [],
+                'weather_info': {'success': False, 'error': '天气数据获取失败'},
+                'attractions': [],
+                'accommodations': [],
+                'dining_options': [],
+                'local_info': {},
+                'ai_insights': '由于数据收集过程中出现问题，这是一个基础的旅行计划。建议您在出行前进一步研究目的地信息。',
                 'error': str(e)
             }
     
@@ -394,6 +444,57 @@ class ReportGeneratorAgent:
         except Exception as e:
             logger.error(f"Error creating default travel plans: {str(e)}")
             return []
+    
+    def _create_emergency_fallback_plans(self, budget: float, duration: int) -> List[Dict[str, Any]]:
+        """Create emergency fallback plans when all other plan generation fails."""
+        try:
+            logger.warning(f"Creating emergency fallback plans for budget {budget} and duration {duration}")
+            
+            # Create a single basic plan that will always work
+            basic_budget = max(budget, 1000)  # Ensure minimum budget
+            basic_duration = max(duration, 1)  # Ensure minimum duration
+            
+            emergency_plan = {
+                'plan_type': 'Basic',
+                'description': '基础旅行计划 - 包含必要的旅行安排和预算分配',
+                'total_budget': basic_budget,
+                'budget_allocation': {
+                    'transportation': {'amount': basic_budget * 0.30, 'percentage': 30},
+                    'accommodation': {'amount': basic_budget * 0.35, 'percentage': 35},
+                    'dining': {'amount': basic_budget * 0.20, 'percentage': 20},
+                    'activities': {'amount': basic_budget * 0.15, 'percentage': 15}
+                },
+                'tips': [
+                    '提前规划行程以获得更好的价格',
+                    '选择性价比高的住宿和交通方式',
+                    '尝试当地美食，体验地道文化',
+                    '合理安排时间，平衡观光和休息',
+                    '保持灵活性，根据实际情况调整计划'
+                ],
+                'daily_budget': basic_budget / basic_duration,
+                'notes': '这是一个基础的旅行计划模板，建议根据具体目的地和个人喜好进行调整。'
+            }
+            
+            logger.info("Created 1 emergency fallback plan")
+            return [emergency_plan]
+            
+        except Exception as e:
+            logger.error(f"Error creating emergency fallback plans: {str(e)}")
+            # Return absolute minimum plan
+            return [{
+                'plan_type': 'Minimal',
+                'description': '最基础的旅行计划',
+                'total_budget': 1000,
+                'budget_allocation': {
+                    'transportation': {'amount': 300, 'percentage': 30},
+                    'accommodation': {'amount': 350, 'percentage': 35},
+                    'dining': {'amount': 200, 'percentage': 20},
+                    'activities': {'amount': 150, 'percentage': 15}
+                },
+                'tips': ['基础旅行建议'],
+                'daily_budget': 1000 / 7,
+                'notes': '最基础的旅行计划，请根据实际情况调整。'
+            }]
     
     def _create_budget_summary(self, travel_plans: List[Dict[str, Any]], total_budget: float) -> Dict[str, Any]:
         """Create a comprehensive budget summary."""
