@@ -1,21 +1,21 @@
 """
-Weather Service
-Provides weather forecast data for travel planning
+Weather Service - Amap MCP Only
+Provides weather forecast data using only Amap MCP server
 """
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
 class WeatherService:
-    """Service for weather data integration."""
+    """Service for weather data integration using Amap MCP only."""
     
     def __init__(self, use_mcp_tool=None):
-        """Initialize the weather service with optional MCP tool function."""
+        """Initialize the weather service with Amap MCP tool function."""
         self.use_mcp_tool = use_mcp_tool
-        logger.info(f"Weather Service initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
+        logger.info(f"Weather Service initialized with Amap MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
     def get_weather_forecast(
         self,
@@ -24,7 +24,7 @@ class WeatherService:
         duration: int
     ) -> Dict[str, Any]:
         """
-        Get weather forecast for travel dates using real weather data from AMap API.
+        Get weather forecast for travel dates using Amap MCP API.
         
         Args:
             destination: Destination city name
@@ -35,38 +35,38 @@ class WeatherService:
             Dict containing weather forecast data
         """
         try:
-            logger.info(f"Getting real weather forecast for {destination} from {start_date} for {duration} days")
+            logger.info(f"Getting weather forecast for {destination} from {start_date} for {duration} days using Amap MCP")
             
-            # Try to get real weather data from AMap API via MCP tool
+            # Use Amap MCP tool to get weather data
             if self.use_mcp_tool:
-                logger.info(f"Using MCP tool to get real weather data for {destination}")
-                amap_weather = self._get_amap_weather(destination)
+                logger.info(f"Calling Amap MCP weather service for {destination}")
+                amap_weather = self._get_amap_weather_mcp(destination)
                 
-                if amap_weather['success']:
-                    # Convert real weather data to multi-day forecast
+                if amap_weather.get('success'):
+                    # Convert weather data to multi-day forecast
                     forecast = self._convert_amap_to_forecast(amap_weather, start_date, duration)
                     
                     if forecast:
-                        logger.info(f"Successfully generated {len(forecast)} day forecast from real weather data")
+                        logger.info(f"Successfully generated {len(forecast)} day forecast from Amap MCP data")
                         return {
                             'success': True,
                             'destination': destination,
                             'forecast': forecast,
                             'current_weather': amap_weather.get('current_weather', {}),
-                            'source': 'AMap Real Weather Data',
-                            'note': 'Weather forecast based on current real weather conditions from AMap API.',
+                            'source': 'Amap MCP Weather Service',
+                            'note': '天气预报数据来自高德地图MCP服务。',
                             'raw_data': amap_weather.get('raw_response')
                         }
                     else:
-                        logger.warning(f"Failed to convert AMap weather data to forecast for {destination}")
+                        logger.warning(f"Failed to convert Amap weather data to forecast for {destination}")
                 else:
-                    logger.warning(f"Failed to get real weather data for {destination}: {amap_weather.get('error', 'Unknown error')}")
+                    logger.warning(f"Failed to get weather data from Amap MCP for {destination}: {amap_weather.get('error', 'Unknown error')}")
             else:
-                logger.warning("MCP tool not available for weather service")
+                logger.warning("MCP tool function not available for weather service")
             
-            # Fallback: Return error response indicating real weather is unavailable
+            # Return error response if MCP service is unavailable
             return self._create_error_response(
-                "Real weather data is currently unavailable. MCP weather service may be offline or API key missing.",
+                "Amap MCP weather service is currently unavailable. Please check API configuration.",
                 destination
             )
             
@@ -98,9 +98,9 @@ class WeatherService:
         
         return translation_map.get(condition, condition)
     
-    def _get_amap_weather(self, city: str) -> Dict[str, Any]:
+    def _get_amap_weather_mcp(self, city: str) -> Dict[str, Any]:
         """
-        Get weather data from AMap API via MCP tool.
+        Get weather data from Amap MCP service.
         
         Args:
             city: City name to query
@@ -109,7 +109,7 @@ class WeatherService:
             Dict containing weather data or error information
         """
         try:
-            logger.info(f"🌍 Requesting weather data for city: {city}")
+            logger.info(f"🌍 Requesting weather data for city: {city} via Amap MCP")
             
             if not self.use_mcp_tool:
                 logger.error("❌ MCP tool function not available")
@@ -118,88 +118,70 @@ class WeatherService:
                     'error': 'MCP tool function not available'
                 }
             
-            # Use MCP tool to get weather from amap-maps-mcp-server
-            logger.info(f"🔧 Calling MCP tool: maps_weather for {city}")
+            # Call Amap MCP weather tool with simplified parameters
+            logger.info(f"🔧 Calling Amap MCP maps_weather for {city}")
             result = self.use_mcp_tool(
                 tool_name="maps_weather",
                 arguments={"city": city},
                 server_name="amap-maps"
             )
             
-            logger.info(f"📡 MCP tool response type: {type(result)}")
-            logger.info(f"📋 MCP tool response keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
-            logger.debug(f"📋 MCP tool raw response: {result}")
+            logger.info(f"📡 Amap MCP response type: {type(result)}")
+            if isinstance(result, dict):
+                logger.info(f"📋 Response keys: {list(result.keys())}")
             
             if not result:
-                logger.error("❌ No response from AMap weather API")
+                logger.error("❌ No response from Amap MCP weather service")
                 return {
                     'success': False,
-                    'error': 'No response from AMap weather API'
+                    'error': 'No response from Amap MCP weather service'
                 }
             
-            # Handle different MCP response formats
+            # Handle MCP response
             if isinstance(result, dict):
-                # Check if it's an MCP error response
+                # Check for MCP error response
                 if 'success' in result and not result['success']:
-                    error_msg = result.get('error', 'Unknown error')
-                    logger.warning(f"⚠️ MCP tool returned error: {error_msg}")
-                    
-                    # Check for specific error types
-                    if 'event loop' in error_msg.lower():
-                        logger.error("🔄 Event loop conflict detected in MCP call")
-                        return {
-                            'success': False,
-                            'error': f"MCP tool error: {error_msg}",
-                            'error_type': 'event_loop_conflict',
-                            'suggestion': 'Event loop conflict - this should be fixed by the new async handling'
-                        }
-                    
+                    error_msg = result.get('error', 'Unknown MCP error')
+                    logger.warning(f"⚠️ Amap MCP returned error: {error_msg}")
                     return {
                         'success': False,
-                        'error': f"MCP tool error: {error_msg}",
-                        'error_type': 'mcp_tool_error'
+                        'error': f"Amap MCP error: {error_msg}",
+                        'error_type': 'mcp_error'
                     }
                 
-                # Check for direct error field
-                if 'error' in result and not result.get('success', True):
-                    logger.warning(f"⚠️ AMap weather API error: {result['error']}")
+                # Parse successful response
+                weather_data = self._parse_amap_weather_response(result)
+                
+                if weather_data:
+                    logger.info(f"✅ Successfully retrieved weather data for {city}")
+                    return {
+                        'success': True,
+                        'current_weather': weather_data,
+                        'raw_response': result
+                    }
+                else:
+                    logger.error("❌ Failed to parse Amap MCP weather response")
                     return {
                         'success': False,
-                        'error': result['error'],
-                        'error_type': 'amap_api_error'
+                        'error': 'Failed to parse Amap MCP weather response',
+                        'raw_response': result,
+                        'error_type': 'parsing_error'
                     }
-            
-            # Parse the weather data
-            logger.info("🔍 Attempting to parse weather response")
-            weather_data = self._parse_amap_weather_response(result)
-            
-            if weather_data:
-                logger.info(f"✅ Successfully retrieved weather data for {city}")
-                logger.info(f"🌤️ Weather condition: {weather_data.get('condition', 'Unknown')}")
-                logger.info(f"🌡️ Temperature: {weather_data.get('temperature', 'N/A')}°C")
-                return {
-                    'success': True,
-                    'current_weather': weather_data,
-                    'raw_response': result
-                }
             else:
-                logger.error("❌ Failed to parse AMap weather response")
-                logger.error(f"📋 Unparseable response: {result}")
+                logger.error(f"❌ Unexpected Amap MCP response format: {type(result)}")
                 return {
                     'success': False,
-                    'error': 'Failed to parse AMap weather response - invalid format',
-                    'raw_response': result,
-                    'error_type': 'parsing_error'
+                    'error': f'Unexpected response format: {type(result)}',
+                    'raw_response': result
                 }
                 
         except Exception as e:
-            logger.error(f"💥 Exception calling AMap weather API for {city}: {str(e)}")
-            logger.error(f"🔍 Exception type: {type(e).__name__}")
+            logger.error(f"💥 Exception calling Amap MCP weather service for {city}: {str(e)}")
             import traceback
             logger.error(f"📋 Full traceback: {traceback.format_exc()}")
             return {
                 'success': False,
-                'error': f'AMap weather API call failed: {str(e)}',
+                'error': f'Amap MCP weather service call failed: {str(e)}',
                 'error_type': 'exception',
                 'exception_type': type(e).__name__
             }
