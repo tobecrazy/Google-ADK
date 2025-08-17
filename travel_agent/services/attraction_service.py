@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class AttractionService:
     """Service for attraction and POI data."""
     
-    def __init__(self):
+    def __init__(self, mcp_tool_caller=None):
         """Initialize the attraction service."""
         # Initialize Gemini for attraction data generation
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -31,15 +31,16 @@ class AttractionService:
         # Initialize image handler for attraction images
         self.image_handler = ImageHandler()
         
-        logger.info("Attraction Service initialized")
+        # Store MCP tool caller for real-time data
+        self.mcp_tool_caller = mcp_tool_caller
+        
+        logger.info("Attraction Service initialized with MCP integration")
     
     def get_attractions(self, destination: str, budget: float) -> List[Dict[str, Any]]:
         """
         Get attractions and points of interest for a destination.
         
-        Note: Real-time attraction data is now handled by Google ADK MCP tools
-        at the agent level. This service provides AI-generated attractions that
-        can be enhanced with real MCP data when the agent uses MCP tools.
+        Now enhanced with real-time amap MCP data integration for accurate attraction information.
         
         Args:
             destination: Target destination
@@ -51,9 +52,22 @@ class AttractionService:
         try:
             logger.info(f"Getting attractions for {destination}")
             
-            # Generate comprehensive AI-based attractions
-            # Real-time MCP data integration happens at the agent level
-            enhanced_attractions = self._generate_attractions_with_ai(destination, budget)
+            # Try to get real attractions from amap MCP first
+            real_attractions = []
+            if self.mcp_tool_caller:
+                try:
+                    real_attractions = self._get_real_attractions_from_amap(destination, budget)
+                    logger.info(f"Successfully retrieved {len(real_attractions)} real attractions from amap")
+                except Exception as e:
+                    logger.warning(f"Failed to get real attractions from amap: {str(e)}")
+            
+            # If we have real attractions, use them; otherwise fall back to AI-generated
+            if real_attractions and len(real_attractions) >= 3:
+                enhanced_attractions = real_attractions
+                logger.info(f"Using {len(real_attractions)} real attractions from amap")
+            else:
+                logger.info("Falling back to AI-generated attractions")
+                enhanced_attractions = self._generate_attractions_with_ai(destination, budget)
             
             # Enhance with additional details
             final_attractions = self._enhance_attraction_data(enhanced_attractions, budget)
@@ -133,6 +147,446 @@ class AttractionService:
                 enhanced_attractions.append(enhanced_attraction)
         
         return enhanced_attractions
+    
+    def _get_real_attractions_from_amap(self, destination: str, budget: float) -> List[Dict[str, Any]]:
+        """Get real attractions from amap MCP tools."""
+        try:
+            logger.info(f"Fetching real attractions for {destination} using amap MCP")
+            
+            real_attractions = []
+            
+            # Search for different types of attractions using amap
+            attraction_categories = [
+                "景点",
+                "旅游景点", 
+                "著名景点",
+                "博物馆",
+                "公园",
+                "历史建筑",
+                "文化景点"
+            ]
+            
+            # Get city center coordinates first
+            city_center = self._get_city_center_coordinates(destination)
+            
+            for category in attraction_categories:
+                try:
+                    # Search by text
+                    text_results = self._search_attractions_by_category(destination, category)
+                    if text_results:
+                        real_attractions.extend(text_results)
+                    
+                    # Search around city center if we have coordinates
+                    if city_center:
+                        around_results = self._search_attractions_around_location(city_center, category)
+                        if around_results:
+                            real_attractions.extend(around_results)
+                    
+                    # Limit to avoid too many API calls
+                    if len(real_attractions) >= 15:
+                        break
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to search for {category} attractions: {str(e)}")
+                    continue
+            
+            # Remove duplicates and get detailed information
+            unique_attractions = self._remove_duplicate_attractions(real_attractions)
+            detailed_attractions = self._get_detailed_attraction_info(unique_attractions[:10])  # Limit to top 10
+            
+            logger.info(f"Successfully retrieved {len(detailed_attractions)} real attractions from amap")
+            return detailed_attractions
+            
+        except Exception as e:
+            logger.error(f"Error getting real attractions from amap: {str(e)}")
+            return []
+    
+    def _get_city_center_coordinates(self, destination: str) -> Dict[str, Any]:
+        """Get city center coordinates using amap geocoding."""
+        try:
+            if not self.mcp_tool_caller:
+                return None
+                
+            logger.info(f"Getting coordinates for {destination}")
+            
+            # Use amap geocoding to get city center
+            result = self.mcp_tool_caller(
+                'maps_geo',
+                {'address': destination},
+                server_name='Amap Maps Server'
+            )
+            
+            if result and result.get('success') and result.get('result'):
+                geocode_data = result['result']
+                if isinstance(geocode_data, dict) and 'location' in geocode_data:
+                    location = geocode_data['location']
+                    logger.info(f"Found coordinates for {destination}: {location}")
+                    return {
+                        'longitude': location.split(',')[0],
+                        'latitude': location.split(',')[1],
+                        'location_string': location
+                    }
+            
+            logger.warning(f"Could not get coordinates for {destination}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting city center coordinates: {str(e)}")
+            return None
+    
+    def _search_attractions_by_category(self, destination: str, category: str) -> List[Dict[str, Any]]:
+        """Search attractions by category using amap text search."""
+        try:
+            if not self.mcp_tool_caller:
+                return []
+                
+            logger.info(f"Searching for {category} in {destination}")
+            
+            # Use amap text search
+            result = self.mcp_tool_caller(
+                'maps_text_search',
+                {
+                    'keywords': f'{destination} {category}',
+                    'city': destination
+                },
+                server_name='Amap Maps Server'
+            )
+            
+            if result and result.get('success') and result.get('result'):
+                search_data = result['result']
+                return self._parse_amap_search_results(search_data, 'text_search')
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error searching attractions by category {category}: {str(e)}")
+            return []
+    
+    def _search_attractions_around_location(self, location: Dict[str, Any], category: str) -> List[Dict[str, Any]]:
+        """Search attractions around a specific location using amap around search."""
+        try:
+            if not self.mcp_tool_caller or not location:
+                return []
+                
+            logger.info(f"Searching for {category} around location {location.get('location_string', '')}")
+            
+            # Use amap around search
+            result = self.mcp_tool_caller(
+                'maps_around_search',
+                {
+                    'keywords': category,
+                    'location': location['location_string'],
+                    'radius': '5000'  # 5km radius
+                },
+                server_name='Amap Maps Server'
+            )
+            
+            if result and result.get('success') and result.get('result'):
+                search_data = result['result']
+                return self._parse_amap_search_results(search_data, 'around_search')
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error searching attractions around location: {str(e)}")
+            return []
+    
+    def _parse_amap_search_results(self, search_data: Any, search_type: str) -> List[Dict[str, Any]]:
+        """Parse amap search results into attraction format."""
+        try:
+            attractions = []
+            
+            # Handle different response formats
+            pois = []
+            if isinstance(search_data, dict):
+                if 'pois' in search_data:
+                    pois = search_data['pois']
+                elif 'results' in search_data:
+                    pois = search_data['results']
+                elif isinstance(search_data.get('data'), list):
+                    pois = search_data['data']
+            elif isinstance(search_data, list):
+                pois = search_data
+            
+            logger.info(f"Parsing {len(pois)} POIs from {search_type}")
+            
+            for poi in pois[:10]:  # Limit to top 10 results per search
+                try:
+                    if not isinstance(poi, dict):
+                        continue
+                        
+                    attraction = {
+                        'name': poi.get('name', '未知景点'),
+                        'description': self._generate_description_from_poi(poi),
+                        'category': self._categorize_poi(poi),
+                        'duration': self._estimate_duration_from_poi(poi),
+                        'entrance_fee': self._estimate_fee_from_poi(poi),
+                        'rating': self._extract_rating_from_poi(poi),
+                        'address': poi.get('address', ''),
+                        'location': poi.get('location', ''),
+                        'phone': poi.get('tel', ''),
+                        'source': 'amap_real_data',
+                        'poi_id': poi.get('id', ''),
+                        'search_type': search_type
+                    }
+                    
+                    attractions.append(attraction)
+                    
+                except Exception as e:
+                    logger.warning(f"Error parsing individual POI: {str(e)}")
+                    continue
+            
+            logger.info(f"Successfully parsed {len(attractions)} attractions from {search_type}")
+            return attractions
+            
+        except Exception as e:
+            logger.error(f"Error parsing amap search results: {str(e)}")
+            return []
+    
+    def _generate_description_from_poi(self, poi: Dict[str, Any]) -> str:
+        """Generate description from POI data."""
+        try:
+            name = poi.get('name', '')
+            address = poi.get('address', '')
+            type_code = poi.get('type', '')
+            
+            # Use available information to create description
+            if '博物馆' in name or 'museum' in name.lower():
+                return f"{name}是一座重要的博物馆，展示丰富的文化和历史藏品，是了解当地文化的绝佳场所。"
+            elif '公园' in name or 'park' in name.lower():
+                return f"{name}是一个美丽的公园，提供休闲娱乐和自然风光，适合散步和放松。"
+            elif '塔' in name or 'tower' in name.lower():
+                return f"{name}是当地的标志性建筑，提供城市全景视野，是拍照和观光的热门地点。"
+            elif '寺' in name or '庙' in name:
+                return f"{name}是一座历史悠久的宗教建筑，具有深厚的文化底蕴和精美的建筑艺术。"
+            elif '外滩' in name:
+                return f"{name}是上海最著名的景点之一，汇集了各种风格的历史建筑，是欣赏黄浦江美景的最佳地点。"
+            elif '豫园' in name:
+                return f"{name}是上海著名的古典园林，展现了中国传统园林艺术的精髓，是体验传统文化的理想场所。"
+            else:
+                return f"{name}是当地的著名景点，位于{address}，值得一游。"
+                
+        except Exception as e:
+            logger.warning(f"Error generating description from POI: {str(e)}")
+            return "这是一个值得参观的景点。"
+    
+    def _categorize_poi(self, poi: Dict[str, Any]) -> str:
+        """Categorize POI based on its properties."""
+        try:
+            name = poi.get('name', '').lower()
+            poi_type = poi.get('type', '').lower()
+            
+            if any(keyword in name for keyword in ['博物馆', 'museum']):
+                return '文化教育'
+            elif any(keyword in name for keyword in ['公园', 'park', '花园', 'garden']):
+                return '自然风光'
+            elif any(keyword in name for keyword in ['塔', 'tower', '大厦', 'building']):
+                return '观光地标'
+            elif any(keyword in name for keyword in ['寺', '庙', 'temple']):
+                return '宗教文化'
+            elif any(keyword in name for keyword in ['外滩', '南京路', '步行街']):
+                return '历史文化'
+            elif any(keyword in name for keyword in ['广场', 'square']):
+                return '城市地标'
+            else:
+                return '综合景点'
+                
+        except Exception as e:
+            logger.warning(f"Error categorizing POI: {str(e)}")
+            return '综合景点'
+    
+    def _estimate_duration_from_poi(self, poi: Dict[str, Any]) -> str:
+        """Estimate visit duration based on POI type."""
+        try:
+            name = poi.get('name', '').lower()
+            
+            if any(keyword in name for keyword in ['博物馆', 'museum']):
+                return '2-3小时'
+            elif any(keyword in name for keyword in ['公园', 'park']):
+                return '1-2小时'
+            elif any(keyword in name for keyword in ['塔', 'tower']):
+                return '1小时'
+            elif any(keyword in name for keyword in ['外滩']):
+                return '2-3小时'
+            elif any(keyword in name for keyword in ['豫园']):
+                return '2-3小时'
+            else:
+                return '1-2小时'
+                
+        except Exception as e:
+            logger.warning(f"Error estimating duration: {str(e)}")
+            return '1-2小时'
+    
+    def _estimate_fee_from_poi(self, poi: Dict[str, Any]) -> float:
+        """Estimate entrance fee based on POI type."""
+        try:
+            name = poi.get('name', '').lower()
+            
+            if any(keyword in name for keyword in ['博物馆', 'museum']):
+                return 20.0
+            elif any(keyword in name for keyword in ['塔', 'tower']):
+                return 50.0
+            elif any(keyword in name for keyword in ['豫园']):
+                return 30.0
+            elif any(keyword in name for keyword in ['公园', 'park', '外滩', '广场']):
+                return 0.0
+            else:
+                return 10.0
+                
+        except Exception as e:
+            logger.warning(f"Error estimating fee: {str(e)}")
+            return 0.0
+    
+    def _extract_rating_from_poi(self, poi: Dict[str, Any]) -> float:
+        """Extract or estimate rating from POI data."""
+        try:
+            # Check if rating is available in POI data
+            if 'rating' in poi:
+                return float(poi['rating'])
+            elif 'score' in poi:
+                return float(poi['score'])
+            else:
+                # Estimate based on POI type and name recognition
+                name = poi.get('name', '').lower()
+                if any(keyword in name for keyword in ['外滩', '东方明珠', '豫园']):
+                    return 4.5
+                elif any(keyword in name for keyword in ['博物馆', 'museum']):
+                    return 4.2
+                else:
+                    return 4.0
+                    
+        except Exception as e:
+            logger.warning(f"Error extracting rating: {str(e)}")
+            return 4.0
+    
+    def _remove_duplicate_attractions(self, attractions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate attractions based on name similarity."""
+        try:
+            unique_attractions = []
+            seen_names = set()
+            
+            for attraction in attractions:
+                name = attraction.get('name', '').lower().strip()
+                
+                # Check for exact duplicates
+                if name in seen_names:
+                    continue
+                
+                # Check for similar names (simple similarity check)
+                is_duplicate = False
+                for seen_name in seen_names:
+                    if self._names_are_similar(name, seen_name):
+                        is_duplicate = True
+                        break
+                
+                if not is_duplicate:
+                    unique_attractions.append(attraction)
+                    seen_names.add(name)
+            
+            logger.info(f"Removed duplicates: {len(attractions)} -> {len(unique_attractions)}")
+            return unique_attractions
+            
+        except Exception as e:
+            logger.error(f"Error removing duplicates: {str(e)}")
+            return attractions
+    
+    def _names_are_similar(self, name1: str, name2: str) -> bool:
+        """Check if two attraction names are similar (simple implementation)."""
+        try:
+            # Simple similarity check - can be enhanced with more sophisticated algorithms
+            if len(name1) < 3 or len(name2) < 3:
+                return name1 == name2
+            
+            # Check if one name contains the other
+            if name1 in name2 or name2 in name1:
+                return True
+            
+            # Check for common words
+            words1 = set(name1.split())
+            words2 = set(name2.split())
+            common_words = words1.intersection(words2)
+            
+            # If they share significant words, consider them similar
+            if len(common_words) >= min(len(words1), len(words2)) * 0.7:
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.warning(f"Error checking name similarity: {str(e)}")
+            return False
+    
+    def _get_detailed_attraction_info(self, attractions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Get detailed information for attractions using amap detail search."""
+        try:
+            detailed_attractions = []
+            
+            for attraction in attractions:
+                try:
+                    poi_id = attraction.get('poi_id')
+                    if poi_id and self.mcp_tool_caller:
+                        # Try to get detailed information
+                        detail_result = self.mcp_tool_caller(
+                            'maps_search_detail',
+                            {'id': poi_id},
+                            server_name='Amap Maps Server'
+                        )
+                        
+                        if detail_result and detail_result.get('success'):
+                            # Enhance attraction with detailed info
+                            detailed_info = detail_result.get('result', {})
+                            attraction = self._merge_detailed_info(attraction, detailed_info)
+                    
+                    detailed_attractions.append(attraction)
+                    
+                except Exception as e:
+                    logger.warning(f"Error getting details for attraction {attraction.get('name', 'Unknown')}: {str(e)}")
+                    # Add attraction without detailed info
+                    detailed_attractions.append(attraction)
+            
+            return detailed_attractions
+            
+        except Exception as e:
+            logger.error(f"Error getting detailed attraction info: {str(e)}")
+            return attractions
+    
+    def _merge_detailed_info(self, attraction: Dict[str, Any], detailed_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge detailed information into attraction data."""
+        try:
+            # Update with more detailed information if available
+            if isinstance(detailed_info, dict):
+                if 'business_hours' in detailed_info:
+                    attraction['opening_hours'] = detailed_info['business_hours']
+                if 'photos' in detailed_info and detailed_info['photos']:
+                    attraction['photos'] = detailed_info['photos'][:3]  # Keep top 3 photos
+                if 'rating' in detailed_info:
+                    attraction['rating'] = float(detailed_info['rating'])
+                if 'price' in detailed_info:
+                    attraction['entrance_fee'] = self._parse_price_info(detailed_info['price'])
+            
+            return attraction
+            
+        except Exception as e:
+            logger.warning(f"Error merging detailed info: {str(e)}")
+            return attraction
+    
+    def _parse_price_info(self, price_info: Any) -> float:
+        """Parse price information from detailed POI data."""
+        try:
+            if isinstance(price_info, (int, float)):
+                return float(price_info)
+            elif isinstance(price_info, str):
+                # Extract numeric value from price string
+                import re
+                price_match = re.search(r'(\d+(?:\.\d+)?)', price_info)
+                if price_match:
+                    return float(price_match.group(1))
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.warning(f"Error parsing price info: {str(e)}")
+            return 0.0
     
     def _generate_attractions_with_ai(self, destination: str, budget: float) -> List[Dict[str, Any]]:
         """Use AI to generate attraction recommendations."""

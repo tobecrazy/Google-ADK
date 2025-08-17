@@ -46,7 +46,7 @@ class DataCollectorAgent:
         # Pass MCP tool function to services that need it
         self.use_mcp_tool = use_mcp_tool
         self.weather_service = WeatherService(use_mcp_tool=use_mcp_tool)
-        self.attraction_service = AttractionService()
+        self.attraction_service = AttractionService(mcp_tool_caller=use_mcp_tool)
         self.transport_service = TransportService()
         self.accommodation_service = AccommodationService()
         self.restaurant_service = RestaurantService()
