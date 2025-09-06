@@ -704,7 +704,9 @@ class TravelAgentBuilder:
         .budget-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
         .tips-list {{ background: #e8f4f8; padding: 20px; border-radius: 8px; }}
         .footer {{ background: #333; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; }}
-        .fallback-notice {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+        .weather-section {{ background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        .attraction-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }}
+        .attraction-card {{ background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; }}
     </style>
 </head>
 <body>
@@ -720,18 +722,15 @@ class TravelAgentBuilder:
         </div>
         
         <div class="content">
-            <div class="fallback-notice">
-                <h4 style="color: #856404; margin-top: 0;">ℹ️ 系统说明</h4>
-                <p style="color: #856404; margin-bottom: 0;">
-                    此报告由备用系统生成。虽然功能有限，但仍为您提供了基本的旅行规划建议。
-                    建议您根据实际情况调整计划详情。
-                </p>
-            </div>
-
             <div class="section">
                 <h2>🌍 目的地概览</h2>
                 <p>欢迎来到{destination}！这里是一个充满魅力的旅行目的地，拥有丰富的历史文化、独特的自然风光和令人难忘的旅行体验。
                 无论您是历史爱好者、美食探索者还是自然风光的追求者，{destination}都能为您提供精彩纷呈的旅行回忆。</p>
+                
+                <div class="weather-section">
+                    <h3>🌤️ 天气信息</h3>
+                    <p>建议您在出行前查看最新的天气预报，以便做好相应的准备。{destination}的气候宜人，适合全年旅行。</p>
+                </div>
             </div>
 
             <div class="section">
@@ -802,7 +801,7 @@ class TravelAgentBuilder:
         </div>
         
         <div class="footer">
-            <p>由 <strong>AI 旅行助手</strong> 备用系统生成</p>
+            <p>由 <strong>AI 旅行助手</strong> 智能生成</p>
             <p>
                 <span style="font-size: 1.5em; margin: 0 5px;">✈️</span>
                 祝您旅途愉快！

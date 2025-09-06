@@ -23,6 +23,14 @@ import json
 from urllib.parse import urljoin, urlparse, quote
 from datetime import datetime
 
+# Import MCP services
+try:
+    from ..services.mcp_fetch_service import MCPFetchService, MCPImageService
+except ImportError:
+    # Fallback if import fails
+    MCPFetchService = None
+    MCPImageService = None
+
 logger = logging.getLogger(__name__)
 
 class RestaurantScraper:
@@ -52,6 +60,10 @@ class RestaurantScraper:
         
         # Configure session with better headers
         self._setup_session()
+        
+        # Initialize MCP services if available
+        self.mcp_fetch_service = MCPFetchService() if MCPFetchService else None
+        self.mcp_image_service = MCPImageService() if MCPImageService else None
         
         logger.info("Restaurant Scraper initialized")
     
@@ -547,6 +559,53 @@ class RestaurantScraper:
     def _scrape_blog_page(self, url: str, destination: str, max_results: int) -> List[Dict[str, Any]]:
         """Scrape a specific blog page for restaurant recommendations."""
         try:
+            logger.info(f"Scraping blog page: {url}")
+            
+            # Handle relative URLs and DuckDuckGo redirect URLs
+            if url.startswith('//'):
+                url = 'https:' + url
+            elif url.startswith('/'):
+                url = 'https://duckduckgo.com' + url
+            
+            # Handle DuckDuckGo redirect URLs
+            if 'duckduckgo.com/l/' in url:
+                # Extract the actual URL from DuckDuckGo redirect
+                import urllib.parse
+                try:
+                    parsed = urllib.parse.urlparse(url)
+                    query_params = urllib.parse.parse_qs(parsed.query)
+                    if 'uddg' in query_params:
+                        actual_url = urllib.parse.unquote(query_params['uddg'][0])
+                        # Fix URL scheme if missing
+                        if actual_url.startswith('//'):
+                            actual_url = 'https:' + actual_url
+                        elif not actual_url.startswith(('http://', 'https://')):
+                            actual_url = 'https://' + actual_url
+                        
+                        # Validate the extracted URL
+                        if actual_url.startswith(('http://', 'https://')):
+                            url = actual_url
+                            logger.info(f"Extracted actual URL from DuckDuckGo redirect: {url}")
+                        else:
+                            logger.warning(f"Invalid extracted URL: {actual_url}, skipping")
+                            return []
+                    else:
+                        logger.warning(f"No 'uddg' parameter found in DuckDuckGo URL: {url}")
+                        return []
+                except Exception as parse_error:
+                    logger.error(f"Error parsing DuckDuckGo redirect URL {url}: {str(parse_error)}")
+                    return []
+            
+            # Final URL validation and scheme fixing
+            if url.startswith('//'):
+                url = 'https:' + url
+            elif not url.startswith(('http://', 'https://')):
+                if '.' in url:  # Looks like a domain
+                    url = 'https://' + url
+                else:
+                    logger.error(f"Invalid URL format: {url}")
+                    return []
+            
             restaurants = []
             
             time.sleep(random.uniform(2, 4))
@@ -769,6 +828,112 @@ class RestaurantScraper:
             logger.warning(f"Error calculating quality score: {str(e)}")
             return 50.0  # Default score
     
+    def get_restaurant_images_mcp(self, restaurant_name: str, location: str = "") -> List[str]:
+        """
+        Get restaurant images using MCP fetch service
+        
+        Args:
+            restaurant_name: Name of the restaurant
+            location: Location of the restaurant
+            
+        Returns:
+            List of image URLs
+        """
+        try:
+            if self.mcp_image_service:
+                images = self.mcp_image_service.get_restaurant_images(restaurant_name, location)
+                if images:
+                    logger.info(f"Found {len(images)} images for {restaurant_name} using MCP")
+                    return images
+            
+            # Fallback to traditional search if MCP is not available
+            return self._get_restaurant_images_fallback(restaurant_name, location)
+            
+        except Exception as e:
+            logger.error(f"Error getting restaurant images with MCP: {e}")
+            return self._get_restaurant_images_fallback(restaurant_name, location)
+    
+    def _get_restaurant_images_fallback(self, restaurant_name: str, location: str = "") -> List[str]:
+        """
+        Fallback method to get restaurant images without MCP
+        
+        Args:
+            restaurant_name: Name of the restaurant
+            location: Location of the restaurant
+            
+        Returns:
+            List of image URLs
+        """
+        try:
+            query = f"{restaurant_name} restaurant"
+            if location:
+                query += f" {location}"
+            
+            # Use DuckDuckGo image search as fallback
+            search_url = f"https://duckduckgo.com/?q={quote(query)}&t=h_&iax=images&ia=images"
+            
+            time.sleep(random.uniform(2, 4))
+            response = self.session.get(search_url, timeout=10)
+            response.raise_for_status()
+            
+            # Extract image URLs from the response
+            image_urls = []
+            content = response.text
+            
+            # Look for image URLs in the page content
+            img_patterns = [
+                r'"image":"([^"]+)"',
+                r'"src":"([^"]+\.(?:jpg|jpeg|png|gif|webp))"'
+            ]
+            
+            for pattern in img_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches[:3]:  # Get up to 3 images
+                    img_url = match.replace('\\/', '/')
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    elif not img_url.startswith(('http://', 'https://')):
+                        continue
+                    
+                    if img_url not in image_urls:
+                        image_urls.append(img_url)
+                
+                if len(image_urls) >= 3:
+                    break
+            
+            return image_urls
+            
+        except Exception as e:
+            logger.error(f"Error in fallback image search: {e}")
+            return []
+    
+    def fetch_page_with_mcp(self, url: str) -> Optional[str]:
+        """
+        Fetch page content using MCP fetch service
+        
+        Args:
+            url: URL to fetch
+            
+        Returns:
+            Page content or None if failed
+        """
+        try:
+            if self.mcp_fetch_service:
+                content = self.mcp_fetch_service.fetch_url(url, max_length=10000)
+                if content:
+                    logger.info(f"Successfully fetched page with MCP: {url}")
+                    return content
+            
+            # Fallback to requests if MCP is not available
+            logger.info(f"Using fallback method to fetch: {url}")
+            response = self.session.get(url, timeout=15)
+            response.raise_for_status()
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Error fetching page: {e}")
+            return None
+
     def close(self):
         """Close the scraper and cleanup resources."""
         try:
