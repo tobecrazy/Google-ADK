@@ -598,6 +598,70 @@ class ReportGeneratorAgent:
             logger.error(f"Error creating budget summary: {str(e)}")
             return {'total_budget': total_budget, 'plans': []}
     
+    def _create_default_budget_allocation(self, budget: float, plan_type: str) -> Dict[str, Any]:
+        """Create default budget allocation for a plan."""
+        try:
+            if plan_type == 'Economic':
+                return {
+                    'transportation': {'amount': budget * 0.32, 'percentage': 32},
+                    'accommodation': {'amount': budget * 0.38, 'percentage': 38},
+                    'dining': {'amount': budget * 0.18, 'percentage': 18},
+                    'activities': {'amount': budget * 0.12, 'percentage': 12}
+                }
+            elif plan_type == 'Comfort':
+                return {
+                    'transportation': {'amount': budget * 0.28, 'percentage': 28},
+                    'accommodation': {'amount': budget * 0.32, 'percentage': 32},
+                    'dining': {'amount': budget * 0.22, 'percentage': 22},
+                    'activities': {'amount': budget * 0.18, 'percentage': 18}
+                }
+            else:  # Default/Basic
+                return {
+                    'transportation': {'amount': budget * 0.30, 'percentage': 30},
+                    'accommodation': {'amount': budget * 0.35, 'percentage': 35},
+                    'dining': {'amount': budget * 0.20, 'percentage': 20},
+                    'activities': {'amount': budget * 0.15, 'percentage': 15}
+                }
+        except Exception as e:
+            logger.error(f"Error creating default budget allocation: {str(e)}")
+            return {
+                'transportation': {'amount': budget * 0.30, 'percentage': 30},
+                'accommodation': {'amount': budget * 0.35, 'percentage': 35},
+                'dining': {'amount': budget * 0.20, 'percentage': 20},
+                'activities': {'amount': budget * 0.15, 'percentage': 15}
+            }
+    
+    def _create_default_tips(self, plan_type: str) -> List[str]:
+        """Create default tips for a plan type."""
+        try:
+            if plan_type == 'Economic':
+                return [
+                    '提前预订住宿以获得更好的价格',
+                    '尽可能使用公共交通工具',
+                    '尝试当地街头美食，体验正宗且实惠的餐饮',
+                    '寻找免费的步行游览和活动',
+                    '在非高峰时段参观景点以获得折扣'
+                ]
+            elif plan_type == 'Comfort':
+                return [
+                    '预订设施完善的优质住宿',
+                    '考虑私人交通工具以获得便利',
+                    '在推荐餐厅提前预订',
+                    '购买热门景点的免排队门票',
+                    '考虑参加导游服务以获得更深入的文化体验'
+                ]
+            else:  # Default/Basic
+                return [
+                    '提前规划行程以获得更好的价格',
+                    '选择性价比高的住宿和交通方式',
+                    '尝试当地美食，体验地道文化',
+                    '合理安排时间，平衡观光和休息',
+                    '保持灵活性，根据实际情况调整计划'
+                ]
+        except Exception as e:
+            logger.error(f"Error creating default tips: {str(e)}")
+            return ['基础旅行建议']
+    
     def _render_html_template(self, report_data: Dict[str, Any]) -> str:
         """Render the HTML template with report data."""
         try:
