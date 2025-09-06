@@ -8,12 +8,12 @@ An intelligent travel planning assistant built with Google ADK (AI Development K
 - **🧠 Intelligent Travel Planning**: Generate comprehensive travel itineraries with attractions, accommodations, dining, and transportation
 - **📅 Smart Date Parsing**: Automatically handle relative dates like "后天" (day after tomorrow), "明天" (tomorrow), "3天后" (in 3 days)
 - **💰 Budget Optimization**: Create multiple plan options (economic and premium) based on your budget
-- **📊 Visual Reports**: Generate beautiful HTML reports with images and detailed information
-- **🌐 Real-time Data**: Access current weather, maps, and location data through MCP tools
+- **📊 Visual & Markdown Reports**: Generate beautiful HTML and detailed Markdown reports with images and information
+- **🌐 Real-time Data**: Access current weather, maps, and location data through MCP tools. AttractionService now uses real-time data from Amap MCP.
 
 ### MCP Tool Integration
 - **⏰ Time Server**: Accurate date/time calculations with timezone support
-- **🗺️ Amap Maps**: Location search, weather forecasts, and route planning
+- **🗺️ Amap Maps**: Location search, weather forecasts (exclusive source), real-time attraction data, and route planning
 - **🌐 Web Fetch**: Real-time web data retrieval
 - **🧠 Memory**: User preferences and travel history storage
 - **🔄 Async Loading**: Parallel tool initialization for optimal performance
@@ -299,6 +299,12 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ## 🔄 Recent Updates
+
+### v2.1.0 - Real-time Data and Reporting Enhancements
+- ✅ **Real-time Attraction Data**: `AttractionService` now retrieves real-time attraction information using Amap MCP, providing more accurate and up-to-date recommendations.
+- ✅ **Markdown Report Generation**: In addition to HTML, the agent now generates detailed travel reports in Markdown format.
+- ✅ **Streamlined Weather Service**: `WeatherService` has been refactored to exclusively use the Amap MCP server for all weather data, simplifying the architecture.
+- ✅ **Improved Cost Display**: The HTML travel plan reports now feature enhanced display logic for estimated costs, improving clarity for users.
 
 ### v2.0.0 - MCP Tool Integration Optimization
 - ✅ **Async Tool Loading**: Parallel initialization of MCP servers
