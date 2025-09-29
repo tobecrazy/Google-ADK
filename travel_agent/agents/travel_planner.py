@@ -37,11 +37,11 @@ class TravelPlannerAgent:
         
         self.client = OpenAI(
             api_key=openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
+            base_url="https://api-inference.modelscope.cn/v1"
         )
         
         # Use a working free model from OpenRouter
-        self.model = "moonshotai/kimi-k2:free"
+        self.model = "modelscope/deepseek-ai/DeepSeek-V3.1"
         
         # Date mappings for Chinese relative dates
         self.date_mappings = {

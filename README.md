@@ -14,8 +14,9 @@ An intelligent travel planning assistant built with Google ADK (AI Development K
 ### MCP Tool Integration
 - **⏰ Time Server**: Accurate date/time calculations with timezone support
 - **🗺️ Amap Maps**: Location search, weather forecasts (exclusive source), real-time attraction data, and route planning
-- **🌐 Web Fetch**: Real-time web data retrieval
+- **🌐 Web Fetch**: Real-time web data retrieval for restaurant pages and image searches
 - **🧠 Memory**: User preferences and travel history storage
+- **🖼️ Image Services**: Enhanced image search and retrieval using MCP fetch capabilities
 - **🔄 Async Loading**: Parallel tool initialization for optimal performance
 
 ## 🚀 Quick Start
@@ -215,7 +216,7 @@ Registry status:
 - `maps_search_detail`: Detailed POI information
 
 ### Web Fetch Server (Optional)
-- `fetch`: Retrieve and process web content
+- `fetch`: Retrieve and process web content, restaurant pages, and image searches
 
 ### Memory Server (Optional)
 - `create_entities`: Store travel preferences
@@ -300,6 +301,13 @@ logging.basicConfig(level=logging.DEBUG)
 
 ## 🔄 Recent Updates
 
+### v2.2.0 - Enhanced Web Fetch and Content Integration
+- ✅ **MCP Fetch Service Integration**: Added `MCPFetchService` and `MCPImageService` for enhanced content and image retrieval capabilities.
+- ✅ **Restaurant Data Enhancement**: Updated `restaurant_scraper.py` to use MCP services for fetching restaurant pages and images with intelligent fallback logic.
+- ✅ **Improved URL Handling**: Enhanced URL processing and DuckDuckGo redirect parsing for more reliable web content fetching.
+- ✅ **Image Search Capabilities**: New image search functionality using MCP fetch for restaurants, attractions, and food items.
+- ✅ **Python Publishing Workflow**: Added automated GitHub Actions workflow for Python package publishing.
+
 ### v2.1.0 - Real-time Data and Reporting Enhancements
 - ✅ **Real-time Attraction Data**: `AttractionService` now retrieves real-time attraction information using Amap MCP, providing more accurate and up-to-date recommendations.
 - ✅ **Markdown Report Generation**: In addition to HTML, the agent now generates detailed travel reports in Markdown format.
@@ -317,8 +325,10 @@ logging.basicConfig(level=logging.DEBUG)
 - ✅ **Compatibility**: Backward compatibility with existing code
 
 ### Key Improvements
-- **4 MCP servers** successfully integrated (Time, Amap Maps, Web Fetch, Memory)
-- **14 total tools** available for real-time data access
+- **4+ MCP servers** successfully integrated (Time, Amap Maps, Web Fetch, Memory, Image Services)
+- **15+ total tools** available for real-time data access and content retrieval
+- **Enhanced web scraping** with MCP fetch service integration
+- **Intelligent image search** for restaurants, attractions, and food items
 - **Async/await pattern** for optimal performance
 - **Graceful degradation** when tools are unavailable
 - **Detailed status reporting** for debugging and monitoring

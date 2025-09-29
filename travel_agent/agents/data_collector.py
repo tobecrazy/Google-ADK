@@ -61,9 +61,9 @@ class DataCollectorAgent:
         else:
             self.client = OpenAI(
                 api_key=openrouter_api_key,
-                base_url="https://openrouter.ai/api/v1"
+                base_url="https://api-inference.modelscope.cn/v1"
             )
-            self.model = "moonshotai/kimi-k2:free"
+            self.model = "modelscope/deepseek-ai/DeepSeek-V3.1"
         
         logger.info(f"Data Collector Agent initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
