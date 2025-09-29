@@ -16,7 +16,6 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.image_handler import ImageHandler
-from travel_agent.services.image_service import ImageService
 
 logger = logging.getLogger(__name__)
 

@@ -59,14 +59,14 @@ def create_llm_model() -> LiteLlm:
     
     # List of models to try in order (most reliable and least rate-limited first)
     models_to_try = [
-        "openrouter/moonshotai/kimi-k2:free",
-        "openrouter/qwen/qwen3-235b-a22b:free",
-        "openrouter/deepseek/deepseek-chat-v3-0324:free"     
+        "modelscope/deepseek-ai/DeepSeek-V3.1",
+        "modelscope/deepseek-ai/DeepSeek-R1-0528",
+        "modelscope/Qwen/Qwen3-235B-A22B"     
     ]
     
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("MODELSCOPE_API_KEY")
     if not api_key:
-        raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+        raise ValueError("MODELSCOPE_API_KEY not found in environment variables")
     
     for i, model in enumerate(models_to_try):
         try:
@@ -74,7 +74,7 @@ def create_llm_model() -> LiteLlm:
             llm_model = LiteLlm(
                 model=model,
                 api_key=api_key,
-                api_base="https://openrouter.ai/api/v1",
+                api_base="https://api-inference.modelscope.cn/v1",
                 max_retries=2,  # Reduced retries to fail faster
                 timeout=30
             )

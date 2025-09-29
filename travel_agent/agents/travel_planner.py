@@ -31,17 +31,17 @@ class TravelPlannerAgent:
         self.budget_calculator = BudgetCalculator()
         
         # Initialize OpenRouter client for intelligent planning
-        openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
-        if not openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+        model_api_key = os.getenv('MODELSCOPE_API_KEY')
+        if not model_api_key:
+            raise ValueError("MODELSCOPE_API_KEY not found in environment variables")
         
         self.client = OpenAI(
-            api_key=openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
+            api_key=model_api_key,
+            base_url="https://api-inference.modelscope.cn/v1"
         )
         
         # Use a working free model from OpenRouter
-        self.model = "moonshotai/kimi-k2:free"
+        self.model = "modelscope/deepseek-ai/DeepSeek-V3.1"
         
         # Date mappings for Chinese relative dates
         self.date_mappings = {

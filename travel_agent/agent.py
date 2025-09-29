@@ -65,7 +65,7 @@ class MCPToolConfig:
     @staticmethod
     def get_base_configs() -> List[MCPServerConfig]:
         """获取基础MCP服务器配置"""
-        return [
+        configs = [
             MCPServerConfig(
                 name='Time Server',
                 command='uvx',
@@ -97,6 +97,20 @@ class MCPToolConfig:
                 required=False
             )
         ]
+        
+        # Add BingCN search server
+        configs.append(MCPServerConfig(
+            name='BingCN Search Server',
+            command='npx',
+            args=['bing-cn-mcp'],
+            env_vars={},
+            tool_filter=['search'],
+            priority='medium',
+            timeout=45,
+            required=False
+        ))
+        
+        return configs
     
     @staticmethod
     def get_amap_config() -> Optional[MCPServerConfig]:
@@ -213,6 +227,8 @@ class MCPToolRegistry:
                         return 'Fetch Server'
                     elif 'server-memory' in args_str:
                         return 'Memory Server'
+                    elif 'bing-cn-mcp' in args_str:
+                        return 'BingCN Search Server'
             return 'Unknown Server'
         except Exception:
             return 'Unknown Server'
@@ -442,14 +458,15 @@ class TravelAgentBuilder:
         
         # List of models to try in order (most reliable and least rate-limited first)
         models_to_try = [
-            "openrouter/moonshotai/kimi-k2:free",
-            "openrouter/qwen/qwen3-235b-a22b:free",
-            "openrouter/deepseek/deepseek-chat-v3-0324:free"     
+            "modelscope/Qwen/Qwen3-235B-A22B",
+            "modelscope/deepseek-ai/DeepSeek-V3.1", 
+            "modelscope/deepseek-ai/DeepSeek-R1-0528"
         ]
         
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            raise ValueError("OPENROUTER_API_KEY not found in environment variables")
+        # For ModelScope, we can use a dummy API key or the actual ModelScope token if available
+        api_key = os.getenv("MODELSCOPE_API_KEY") or "dummy_key"
+        if not os.getenv("MODELSCOPE_API_KEY"):
+            logger.warning("MODELSCOPE_API_KEY not found, using dummy key for ModelScope")
         
         for i, model in enumerate(models_to_try):
             try:
@@ -457,7 +474,7 @@ class TravelAgentBuilder:
                 llm_model = LiteLlm(
                     model=model,
                     api_key=api_key,
-                    api_base="https://openrouter.ai/api/v1",
+                    api_base="https://api-inference.modelscope.cn/v1",
                     max_retries=2,  # Reduced retries to fail faster
                     timeout=30
                 )
@@ -899,6 +916,8 @@ class TravelAgentBuilder:
                 instruction_parts.append("• WEB: Use fetch tools for real-time web data")
             if 'Memory Server' in successful_tools:
                 instruction_parts.append("• MEMORY: Use memory tools for user preferences and history")
+            if 'BingCN Search Server' in successful_tools:
+                instruction_parts.append("• SEARCH: Use bing-cn-mcp for web search and information retrieval")
         
         # 添加错误处理说明
         failed_tools = init_status.get('failed_tools', [])

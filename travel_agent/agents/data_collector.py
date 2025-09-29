@@ -53,17 +53,17 @@ class DataCollectorAgent:
         self.web_scraper = WebScraper()
         
         # Initialize OpenRouter client for intelligent data processing
-        openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
-        if not openrouter_api_key:
-            logger.warning("OPENROUTER_API_KEY not found, AI features will be limited")
+        model_api_key = os.getenv('MODELSCOPE_API_KEY')
+        if not model_api_key:
+            logger.warning("MODELSCOPE_API_KEY not found, AI features will be limited")
             self.client = None
             self.model = None
         else:
             self.client = OpenAI(
-                api_key=openrouter_api_key,
-                base_url="https://openrouter.ai/api/v1"
+                api_key=model_api_key,
+                base_url="https://api-inference.modelscope.cn/v1"
             )
-            self.model = "moonshotai/kimi-k2:free"
+            self.model = "modelscope/deepseek-ai/DeepSeek-V3.1"
         
         logger.info(f"Data Collector Agent initialized with MCP integration: {'enabled' if use_mcp_tool else 'disabled'}")
     
