@@ -454,51 +454,9 @@ class TravelAgentBuilder:
             }
     
     def create_llm_model(self) -> LiteLlm:
-        """Creates a LiteLLM model with fallback options for rate limits."""
-        
-        # List of models to try in order (most reliable and least rate-limited first)
-        models_to_try = [
-            "Qwen/Qwen3-235B-A22B",
-            "deepseek-ai/DeepSeek-V3.1", 
-            "deepseek-ai/DeepSeek-R1-0528"
-        ]
-        
-        # For ModelScope, we can use a dummy API key or the actual ModelScope token if available
-        api_key = os.getenv("MODELSCOPE_API_KEY") or "dummy_key"
-        if not os.getenv("MODELSCOPE_API_KEY"):
-            logger.warning("MODELSCOPE_API_KEY not found, using dummy key for ModelScope")
-        
-        for i, model in enumerate(models_to_try):
-            try:
-                logger.info(f"Attempting to create model with: {model} (attempt {i+1}/{len(models_to_try)})")
-                
-                # Configure model-specific parameters
-                model_kwargs = {
-                    "model": model,
-                    "api_key": api_key,
-                    "api_base": "https://api-inference.modelscope.cn/v1",
-                    "custom_llm_provider": "openai",
-                    "max_retries": 2,  # Reduced retries to fail faster
-                    "timeout": 30
-                }
-                
-                # Fix for Qwen models: set enable_thinking=false for non-streaming calls
-                if "Qwen" in model:
-                    logger.info(f"🔧 Configuring Qwen model {model} with enable_thinking=false")
-                    model_kwargs["enable_thinking"] = False
-                
-                llm_model = LiteLlm(**model_kwargs)
-                logger.info(f"✅ Successfully created model with: {model}")
-                return llm_model
-            except Exception as e:
-                logger.error(f"❌ Failed to create model with {model}: {str(e)[:100]}...")
-                if model != models_to_try[-1]:  # Not the last model
-                    logger.info(f"⏭️  Trying next model in {2}s...")
-                    time.sleep(2)  # Brief delay before trying next model
-                continue
-        
-        # If all models fail, raise an exception
-        raise RuntimeError("❌ All model options failed. Please check your API key and try again later.")
+        """Creates a LiteLLM model using shared factory."""
+        from travel_agent.utils.model_factory import create_model_with_fallback
+        return create_model_with_fallback("TravelAgentBuilder")
 
     def _create_enhanced_travel_planning_tool(self):
         """创建增强的旅行规划工具"""
