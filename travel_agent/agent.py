@@ -586,117 +586,105 @@ class TravelAgentBuilder:
                             'exception_type': type(e).__name__
                         }
                 
-                # 导入必要的模块
+                # 导入必要的模块 - 修复导入路径问题
                 try:
-                    # Try direct import first (when running from travel_agent directory)
+                    # 确保当前目录在sys.path中
+                    import sys
+                    import os
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    if current_dir not in sys.path:
+                        sys.path.insert(0, current_dir)
+                    
+                    # 直接导入，不使用相对导入
                     from main import TravelAgent
                     from utils.date_parser import parse_date, get_current_date_info
-                    logger.info("✅ Successfully imported TravelAgent from main")
-                except ImportError:
-                    try:
-                        # Try with travel_agent prefix
-                        from travel_agent.main import TravelAgent
-                        from travel_agent.utils.date_parser import parse_date, get_current_date_info
-                        logger.info("✅ Successfully imported TravelAgent from travel_agent.main")
-                    except ImportError:
-                        try:
-                            # Try absolute import with current directory
-                            import sys
-                            import os
-                            current_dir = os.path.dirname(os.path.abspath(__file__))
-                            if current_dir not in sys.path:
-                                sys.path.insert(0, current_dir)
-                            
-                            from main import TravelAgent
-                            from utils.date_parser import parse_date, get_current_date_info
-                            logger.info("✅ Successfully imported TravelAgent after adding current dir to path")
-                        except ImportError as import_error:
-                            # Create working fallback implementations
-                            logger.error(f"Failed to import TravelAgent after all attempts: {str(import_error)}")
-                            logger.info("Creating working fallback implementation...")
-                            
-                            # Store the error for use in the fallback class
-                            final_import_error = str(import_error)
-                            
-                            class TravelAgent:
-                                def __init__(self, use_mcp_tool=None):
-                                    self.use_mcp_tool = use_mcp_tool
+                    logger.info("✅ Successfully imported TravelAgent with fixed import path")
+                except ImportError as import_error:
+                    logger.error(f"Import failed: {str(import_error)}")
+                    logger.info("Creating MCP-integrated fallback implementation...")
+                    
+                    # Store the error for use in the fallback class
+                    final_import_error = str(import_error)
+                    
+                    class TravelAgent:
+                        def __init__(self, use_mcp_tool=None):
+                            self.use_mcp_tool = use_mcp_tool
+                        
+                        def plan_travel(self, destination, departure_location, start_date, duration, budget, **kwargs):
+                            """Create a working travel plan using AI and MCP tools"""
+                            try:
+                                logger.info(f"🎯 Fallback TravelAgent planning: {destination} for {duration} days")
                                 
-                                def plan_travel(self, destination, departure_location, start_date, duration, budget, **kwargs):
-                                    """Create a working travel plan using AI and MCP tools"""
-                                    try:
-                                        logger.info(f"🎯 Fallback TravelAgent planning: {destination} for {duration} days")
-                                        
-                                        # Generate travel plans using AI
-                                        plans = self._generate_fallback_plans(destination, duration, budget)
-                                        
-                                        # Create HTML report
-                                        html_file = self._create_fallback_html_report(
-                                            destination, departure_location, start_date, duration, budget, plans
-                                        )
-                                        
-                                        return {
-                                            'success': True,
-                                            'message': 'Travel plan generated successfully (fallback mode)',
-                                            'file_path': html_file,
-                                            'plans_count': len(plans),
-                                            'fallback_mode': True
-                                        }
-                                    except Exception as e:
-                                        logger.error(f"❌ Fallback travel planning failed: {str(e)}")
-                                        return {
-                                            'success': False,
-                                            'error': 'Fallback travel planning failed',
-                                            'details': str(e),
-                                            'import_error': final_import_error
-                                        }
+                                # Generate travel plans using AI
+                                plans = self._generate_fallback_plans(destination, duration, budget)
                                 
-                                def _generate_fallback_plans(self, destination, duration, budget):
-                                    """Generate basic travel plans"""
-                                    economic_budget = budget * 0.8
-                                    comfort_budget = budget
-                                    
-                                    plans = [
-                                        {
-                                            'plan_type': 'Economic',
-                                            'total_budget': economic_budget,
-                                            'description': f'经济型{destination}旅行计划，注重性价比',
-                                            'budget_allocation': {
-                                                'transportation': {'amount': economic_budget * 0.32, 'percentage': 32},
-                                                'accommodation': {'amount': economic_budget * 0.38, 'percentage': 38},
-                                                'dining': {'amount': economic_budget * 0.18, 'percentage': 18},
-                                                'activities': {'amount': economic_budget * 0.12, 'percentage': 12}
-                                            },
-                                            'tips': [
-                                                '提前预订住宿以获得更好的价格',
-                                                '尽可能使用公共交通工具',
-                                                '尝试当地街头美食，体验正宗且实惠的餐饮',
-                                                '寻找免费的步行游览和活动',
-                                                '在非高峰时段参观景点以获得折扣'
-                                            ]
-                                        },
-                                        {
-                                            'plan_type': 'Comfort',
-                                            'total_budget': comfort_budget,
-                                            'description': f'舒适型{destination}旅行计划，提供优质体验',
-                                            'budget_allocation': {
-                                                'transportation': {'amount': comfort_budget * 0.28, 'percentage': 28},
-                                                'accommodation': {'amount': comfort_budget * 0.32, 'percentage': 32},
-                                                'dining': {'amount': comfort_budget * 0.22, 'percentage': 22},
-                                                'activities': {'amount': comfort_budget * 0.18, 'percentage': 18}
-                                            },
-                                            'tips': [
-                                                '预订设施完善的优质住宿',
-                                                '考虑私人交通工具以获得便利',
-                                                '在推荐餐厅提前预订',
-                                                '购买热门景点的免排队门票',
-                                                '考虑参加导游服务以获得更深入的文化体验'
-                                            ]
-                                        }
+                                # Create HTML report
+                                html_file = self._create_fallback_html_report(
+                                    destination, departure_location, start_date, duration, budget, plans
+                                )
+                                
+                                return {
+                                    'success': True,
+                                    'message': 'Travel plan generated successfully (fallback mode)',
+                                    'file_path': html_file,
+                                    'plans_count': len(plans),
+                                    'fallback_mode': True
+                                }
+                            except Exception as e:
+                                logger.error(f"❌ Fallback travel planning failed: {str(e)}")
+                                return {
+                                    'success': False,
+                                    'error': 'Fallback travel planning failed',
+                                    'details': str(e),
+                                    'import_error': final_import_error
+                                }
+                        
+                        def _generate_fallback_plans(self, destination, duration, budget):
+                            """Generate basic travel plans"""
+                            economic_budget = budget * 0.8
+                            comfort_budget = budget
+                            
+                            plans = [
+                                {
+                                    'plan_type': 'Economic',
+                                    'total_budget': economic_budget,
+                                    'description': f'经济型{destination}旅行计划，注重性价比',
+                                    'budget_allocation': {
+                                        'transportation': {'amount': economic_budget * 0.32, 'percentage': 32},
+                                        'accommodation': {'amount': economic_budget * 0.38, 'percentage': 38},
+                                        'dining': {'amount': economic_budget * 0.18, 'percentage': 18},
+                                        'activities': {'amount': economic_budget * 0.12, 'percentage': 12}
+                                    },
+                                    'tips': [
+                                        '提前预订住宿以获得更好的价格',
+                                        '尽可能使用公共交通工具',
+                                        '尝试当地街头美食，体验正宗且实惠的餐饮',
+                                        '寻找免费的步行游览和活动',
+                                        '在非高峰时段参观景点以获得折扣'
                                     ]
-                                    return plans
-                                
-                                def _create_fallback_html_report(self, destination, departure_location, start_date, duration, budget, plans):
+                                },
+                                {
+                                    'plan_type': 'Comfort',
+                                    'total_budget': comfort_budget,
+                                    'description': f'舒适型{destination}旅行计划，提供优质体验',
+                                    'budget_allocation': {
+                                        'transportation': {'amount': comfort_budget * 0.28, 'percentage': 28},
+                                        'accommodation': {'amount': comfort_budget * 0.32, 'percentage': 32},
+                                        'dining': {'amount': comfort_budget * 0.22, 'percentage': 22},
+                                        'activities': {'amount': comfort_budget * 0.18, 'percentage': 18}
+                                    },
+                                    'tips': [
+                                        '预订设施完善的优质住宿',
+                                        '考虑私人交通工具以获得便利',
+                                        '在推荐餐厅提前预订',
+                                        '购买热门景点的免排队门票',
+                                        '考虑参加导游服务以获得更深入的文化体验'
+                                    ]
+                                }
+                            ]
+                            return plans
+                        
+                        def _create_fallback_html_report(self, destination, departure_location, start_date, duration, budget, plans):
                                     """Create a basic HTML report"""
                                     from datetime import datetime
                                     import os
@@ -846,13 +834,13 @@ class TravelAgentBuilder:
                                     
                                     logger.info(f"✅ Fallback HTML report created: {file_path}")
                                     return file_path
-                            
-                            def parse_date(date_str):
-                                return date_str
-                            
-                            def get_current_date_info():
-                                from datetime import datetime
-                                return {'current_date': datetime.now().strftime('%Y-%m-%d')}
+                    
+                    def parse_date(date_str):
+                        return date_str
+                    
+                    def get_current_date_info():
+                        from datetime import datetime
+                        return {'current_date': datetime.now().strftime('%Y-%m-%d')}
                 
                 # 创建旅行代理
                 agent = TravelAgent(use_mcp_tool=mcp_caller)

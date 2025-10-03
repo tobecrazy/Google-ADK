@@ -149,15 +149,23 @@ class WeatherService:
                         'error_type': 'mcp_error'
                     }
                 
+                # Check if this is a successful MCP response with result field
+                if 'success' in result and result.get('success') and 'result' in result:
+                    logger.info("✅ Processing successful MCP response with result field")
+                    actual_weather_data = result['result']
+                else:
+                    # Direct response format
+                    actual_weather_data = result
+                
                 # Parse successful response
-                weather_data = self._parse_amap_weather_response(result)
+                weather_data = self._parse_amap_weather_response(actual_weather_data)
                 
                 if weather_data:
                     logger.info(f"✅ Successfully retrieved weather data for {city}")
                     return {
                         'success': True,
                         'current_weather': weather_data,
-                        'raw_response': result
+                        'raw_response': actual_weather_data
                     }
                 else:
                     logger.error("❌ Failed to parse Amap MCP weather response")
