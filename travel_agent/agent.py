@@ -458,9 +458,9 @@ class TravelAgentBuilder:
         
         # List of models to try in order (most reliable and least rate-limited first)
         models_to_try = [
-            "modelscope/Qwen/Qwen3-235B-A22B",
-            "modelscope/deepseek-ai/DeepSeek-V3.1", 
-            "modelscope/deepseek-ai/DeepSeek-R1-0528"
+            "Qwen/Qwen3-235B-A22B",
+            "deepseek-ai/DeepSeek-V3.1", 
+            "deepseek-ai/DeepSeek-R1-0528"
         ]
         
         # For ModelScope, we can use a dummy API key or the actual ModelScope token if available
@@ -471,13 +471,23 @@ class TravelAgentBuilder:
         for i, model in enumerate(models_to_try):
             try:
                 logger.info(f"Attempting to create model with: {model} (attempt {i+1}/{len(models_to_try)})")
-                llm_model = LiteLlm(
-                    model=model,
-                    api_key=api_key,
-                    api_base="https://api-inference.modelscope.cn/v1",
-                    max_retries=2,  # Reduced retries to fail faster
-                    timeout=30
-                )
+                
+                # Configure model-specific parameters
+                model_kwargs = {
+                    "model": model,
+                    "api_key": api_key,
+                    "api_base": "https://api-inference.modelscope.cn/v1",
+                    "custom_llm_provider": "openai",
+                    "max_retries": 2,  # Reduced retries to fail faster
+                    "timeout": 30
+                }
+                
+                # Fix for Qwen models: set enable_thinking=false for non-streaming calls
+                if "Qwen" in model:
+                    logger.info(f"🔧 Configuring Qwen model {model} with enable_thinking=false")
+                    model_kwargs["enable_thinking"] = False
+                
+                llm_model = LiteLlm(**model_kwargs)
                 logger.info(f"✅ Successfully created model with: {model}")
                 return llm_model
             except Exception as e:

@@ -59,9 +59,9 @@ def create_llm_model() -> LiteLlm:
     
     # List of models to try in order (most reliable and least rate-limited first)
     models_to_try = [
-        "modelscope/deepseek-ai/DeepSeek-V3.1",
-        "modelscope/deepseek-ai/DeepSeek-R1-0528",
-        "modelscope/Qwen/Qwen3-235B-A22B"     
+        "deepseek-ai/DeepSeek-V3.1",
+        "deepseek-ai/DeepSeek-R1-0528",
+        "Qwen/Qwen3-235B-A22B"     
     ]
     
     api_key = os.getenv("MODELSCOPE_API_KEY")
@@ -71,13 +71,22 @@ def create_llm_model() -> LiteLlm:
     for i, model in enumerate(models_to_try):
         try:
             print(f"Attempting to create model with: {model} (attempt {i+1}/{len(models_to_try)})")
-            llm_model = LiteLlm(
-                model=model,
-                api_key=api_key,
-                api_base="https://api-inference.modelscope.cn/v1",
-                max_retries=2,  # Reduced retries to fail faster
-                timeout=30
-            )
+            # Configure model-specific parameters
+            model_kwargs = {
+                "model": model,
+                "api_key": api_key,
+                "api_base": "https://api-inference.modelscope.cn/v1",
+                "custom_llm_provider": "openai",
+                "max_retries": 2,  # Reduced retries to fail faster
+                "timeout": 30
+            }
+            
+            # Fix for Qwen models: set enable_thinking=false for non-streaming calls
+            if "Qwen" in model:
+                print(f"🔧 Configuring Qwen model {model} with enable_thinking=false")
+                model_kwargs["enable_thinking"] = False
+            
+            llm_model = LiteLlm(**model_kwargs)
             print(f"✅ Successfully created model with: {model}")
             return llm_model
         except Exception as e:
