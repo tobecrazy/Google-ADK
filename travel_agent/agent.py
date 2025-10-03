@@ -943,7 +943,7 @@ class TravelAgentBuilder:
         logger.info("🔄 Creating fallback agent without MCP tools...")
         return LlmAgent(
             name="travel_planning_agent_fallback",
-            model= "gemini-2.0-flash",
+            model=self.create_llm_model(),
             instruction=(
                 "You are an expert travel planning assistant. Generate detailed travel plans "
                 "that include attractions, accommodations, dining, transportation, and budget "
@@ -1018,9 +1018,11 @@ try:
 except Exception as e:
     logger.error(f"💥 Critical error during agent initialization: {str(e)}")
     # 最后的后备方案
+    # Create emergency fallback agent with ModelScope model
+    builder = TravelAgentBuilder()
     root_agent = LlmAgent(
         name="travel_planning_agent_emergency",
-        model= "gemini-2.0-flash",
+        model=builder.create_llm_model(),
         instruction="You are a travel planning assistant. Generate travel plans using AI knowledge.",
         tools=[create_travel_planning_tool],
     )
