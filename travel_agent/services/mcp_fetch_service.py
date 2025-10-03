@@ -42,11 +42,27 @@ class MCPFetchService:
             
             logger.info(f"MCP Fetch: Fetching {url} with params {params}")
             
-            # Use actual HTTP request for real data fetching
+            # Use actual HTTP request for real data fetching with better headers
             import requests
+            import random
+            
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            ]
+            
+            headers = {
+                'User-Agent': random.choice(user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
             
             try:
-                response = requests.get(url, timeout=15)
+                response = requests.get(url, timeout=15, headers=headers)
                 response.raise_for_status()
                 content = response.text
                 
@@ -64,6 +80,59 @@ class MCPFetchService:
         except Exception as e:
             logger.error(f"Error fetching with MCP: {e}")
             return None
+    
+    def search_restaurants_with_mcp(self, destination: str, max_results: int = 10) -> List[str]:
+        """
+        Search for restaurants using MCP fetch server with DuckDuckGo
+        
+        Args:
+            destination: Destination to search restaurants for
+            max_results: Maximum number of results to return
+            
+        Returns:
+            List of search result URLs
+        """
+        try:
+            # Use DuckDuckGo search instead of Bing (more MCP-friendly)
+            search_queries = [
+                f"{destination} 最佳餐厅 推荐",
+                f"{destination} best restaurants dining"
+            ]
+            
+            all_urls = []
+            
+            for query in search_queries[:1]:  # Limit to 1 query for now
+                search_url = f"https://duckduckgo.com/html/?q={quote(query)}"
+                
+                content = self.fetch_url(search_url, max_length=8000)
+                if not content:
+                    logger.warning(f"No content returned for query: {query}")
+                    continue
+                
+                # Extract result URLs from DuckDuckGo
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(content, 'html.parser')
+                
+                # Look for search results
+                results = soup.select('.result')
+                
+                for result in results[:max_results]:
+                    try:
+                        link_elem = result.select_one('.result__title a')
+                        if link_elem:
+                            href = link_elem.get('href')
+                            if href and href not in all_urls:
+                                all_urls.append(href)
+                    except Exception as e:
+                        logger.warning(f"Error extracting URL from result: {e}")
+                        continue
+            
+            logger.info(f"Found {len(all_urls)} restaurant search URLs for {destination}")
+            return all_urls[:max_results]
+            
+        except Exception as e:
+            logger.error(f"Error searching restaurants with MCP: {e}")
+            return []
     
     def search_images_with_mcp(self, query: str, max_results: int = 5) -> List[str]:
         """

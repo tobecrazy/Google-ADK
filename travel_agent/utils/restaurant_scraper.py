@@ -102,13 +102,13 @@ class RestaurantScraper:
             
             all_restaurants = []
             
-            # Source 1: TripAdvisor (International coverage)
+            # Source 1: Bing Search (using MCP)
             try:
-                tripadvisor_restaurants = self._scrape_tripadvisor(destination, max_results // 4)
-                all_restaurants.extend(tripadvisor_restaurants)
-                logger.info(f"Found {len(tripadvisor_restaurants)} restaurants from TripAdvisor")
+                bing_restaurants = self._scrape_bing_restaurants(destination, max_results // 4)
+                all_restaurants.extend(bing_restaurants)
+                logger.info(f"Found {len(bing_restaurants)} restaurants from Bing search")
             except Exception as e:
-                logger.warning(f"TripAdvisor scraping failed: {str(e)}")
+                logger.warning(f"Bing search scraping failed: {str(e)}")
             
             # Source 2: Generic search engines for restaurant listings
             try:
@@ -152,125 +152,340 @@ class RestaurantScraper:
             logger.error(f"Error in multi-source restaurant scraping: {str(e)}")
             return []
     
-    def _scrape_tripadvisor(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
-        """Scrape restaurants from TripAdvisor."""
+    def _scrape_bing_restaurants(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
+        """Scrape restaurants using Bing search through MCP."""
         try:
             restaurants = []
             
-            # TripAdvisor search URL
-            search_query = f"{destination} restaurants"
-            search_url = f"https://www.tripadvisor.com/Search?q={quote(search_query)}"
+            # Use MCP fetch service if available
+            if self.mcp_fetch_service:
+                logger.info(f"Using MCP fetch service for Bing restaurant search: {destination}")
+                return self._search_restaurants_with_mcp(destination, max_results)
             
-            # Add delay to avoid rate limiting
-            time.sleep(random.uniform(2, 4))
-            
-            # Rotate user agent
-            self.session.headers['User-Agent'] = random.choice(self.user_agents)
-            
-            response = self.session.get(search_url, timeout=15)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Look for restaurant listings
-            restaurant_selectors = [
-                '[data-test-target="restaurants-list"] [data-test-target="restaurant-card"]',
-                '.restaurant-card',
-                '.listing-card',
-                '[class*="restaurant"]'
+            # Fallback to direct Bing search
+            search_queries = [
+                f"{destination} 最佳餐厅 推荐",
+                f"{destination} best restaurants",
+                f"{destination} 美食 餐厅",
+                f"{destination} dining recommendations"
             ]
             
-            for selector in restaurant_selectors:
-                restaurant_elements = soup.select(selector)
-                if restaurant_elements:
-                    break
-            
-            for element in restaurant_elements[:max_results]:
+            for query in search_queries[:2]:  # Limit to 2 queries
                 try:
-                    restaurant = self._parse_tripadvisor_restaurant(element)
-                    if restaurant:
-                        restaurant['source'] = 'tripadvisor'
-                        restaurant['scraped_at'] = datetime.now().isoformat()
-                        restaurants.append(restaurant)
+                    # Use Bing search URL
+                    search_url = f"https://www.bing.com/search?q={quote(query)}"
+                    
+                    # Add delay to avoid rate limiting
+                    time.sleep(random.uniform(2, 4))
+                    
+                    # Rotate user agent
+                    self.session.headers['User-Agent'] = random.choice(self.user_agents)
+                    
+                    response = self.session.get(search_url, timeout=15)
+                    response.raise_for_status()
+                    
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    # Look for search results
+                    result_selectors = [
+                        '.b_algo',
+                        '.b_result',
+                        '[data-bm]'
+                    ]
+                    
+                    results = []
+                    for selector in result_selectors:
+                        results = soup.select(selector)
+                        if results:
+                            break
+                    
+                    for result in results[:max_results//2]:
+                        try:
+                            restaurant = self._parse_bing_restaurant_result(result, destination)
+                            if restaurant:
+                                restaurant['source'] = 'bing_search'
+                                restaurant['scraped_at'] = datetime.now().isoformat()
+                                restaurants.append(restaurant)
+                        except Exception as e:
+                            logger.warning(f"Error parsing Bing restaurant result: {str(e)}")
+                            continue
+                            
                 except Exception as e:
-                    logger.warning(f"Error parsing TripAdvisor restaurant: {str(e)}")
+                    logger.warning(f"Error with Bing search query '{query}': {str(e)}")
                     continue
             
             return restaurants
             
         except Exception as e:
-            logger.error(f"Error scraping TripAdvisor: {str(e)}")
+            logger.error(f"Error scraping Bing restaurants: {str(e)}")
             return []
     
-    def _parse_tripadvisor_restaurant(self, element) -> Optional[Dict[str, Any]]:
-        """Parse a TripAdvisor restaurant element."""
+    def _search_restaurants_with_mcp(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
+        """Search restaurants using MCP fetch service with DuckDuckGo."""
         try:
-            # Extract name
-            name_selectors = ['h3', '.restaurant-name', '[data-test-target="restaurant-name"]', 'a[href*="Restaurant"]']
-            name = ''
-            for selector in name_selectors:
-                name_elem = element.select_one(selector)
-                if name_elem and name_elem.get_text(strip=True):
-                    name = name_elem.get_text(strip=True)
-                    break
+            restaurants = []
             
-            if not name or len(name) < 2:
+            # Search queries for different types of restaurants
+            search_queries = [
+                f"{destination} 最佳餐厅 推荐",
+                f"{destination} best restaurants dining",
+                f"{destination} 美食 特色餐厅",
+                f"{destination} restaurant recommendations"
+            ]
+            
+            for query in search_queries[:2]:  # Limit to 2 queries
+                try:
+                    # Use DuckDuckGo search through MCP (more MCP-friendly than Bing)
+                    search_url = f"https://duckduckgo.com/html/?q={quote(query)}"
+                    
+                    logger.info(f"MCP DuckDuckGo search for: {query}")
+                    content = self.mcp_fetch_service.fetch_url(search_url, max_length=8000)
+                    
+                    if content:
+                        # Parse the search results
+                        soup = BeautifulSoup(content, 'html.parser')
+                        
+                        # Look for DuckDuckGo search results
+                        result_selectors = [
+                            '.result',
+                            '.web-result',
+                            '.result__body'
+                        ]
+                        
+                        results = []
+                        for selector in result_selectors:
+                            results = soup.select(selector)
+                            if results:
+                                break
+                        
+                        for result in results[:max_results//2]:
+                            try:
+                                restaurant = self._parse_duckduckgo_restaurant_result(result, destination)
+                                if restaurant:
+                                    restaurant['source'] = 'duckduckgo_mcp'
+                                    restaurant['scraped_at'] = datetime.now().isoformat()
+                                    restaurants.append(restaurant)
+                            except Exception as e:
+                                logger.warning(f"Error parsing MCP DuckDuckGo result: {str(e)}")
+                                continue
+                    
+                    # Add delay between queries
+                    time.sleep(random.uniform(2, 3))
+                    
+                except Exception as e:
+                    logger.warning(f"Error with MCP DuckDuckGo query '{query}': {str(e)}")
+                    continue
+            
+            return restaurants
+            
+        except Exception as e:
+            logger.error(f"Error searching restaurants with MCP: {str(e)}")
+            return []
+    
+    def _parse_duckduckgo_restaurant_result(self, element, destination: str) -> Optional[Dict[str, Any]]:
+        """Parse a DuckDuckGo search result for restaurant information."""
+        try:
+            # Extract title and description
+            title_elem = element.select_one('.result__title a, .result__a, h3 a, h2 a')
+            desc_elem = element.select_one('.result__snippet, .snippet, .description')
+            
+            if not title_elem:
                 return None
             
-            # Extract rating
-            rating = None
-            rating_selectors = ['.rating', '[class*="rating"]', '[data-test-target="review-rating"]']
-            for selector in rating_selectors:
-                rating_elem = element.select_one(selector)
-                if rating_elem:
-                    rating_text = rating_elem.get('aria-label', '') or rating_elem.get_text()
-                    rating_match = re.search(r'(\d+\.?\d*)', rating_text)
-                    if rating_match:
-                        rating = float(rating_match.group(1))
-                        break
+            title = title_elem.get_text(strip=True)
+            description = desc_elem.get_text(strip=True) if desc_elem else ''
             
-            # Extract cuisine type
-            cuisine = ''
-            cuisine_selectors = ['.cuisine', '[class*="cuisine"]', '.category']
-            for selector in cuisine_selectors:
-                cuisine_elem = element.select_one(selector)
-                if cuisine_elem:
-                    cuisine = cuisine_elem.get_text(strip=True)
+            # Filter for restaurant-related results
+            restaurant_indicators = [
+                '餐厅', '饭店', '酒楼', '茶餐厅', '火锅', '川菜', '粤菜', '湘菜',
+                'restaurant', 'dining', 'food', 'cuisine', 'cafe', 'bar', 'bistro',
+                '美食', '小吃', '菜', '料理', '烧烤', '麻辣烫'
+            ]
+            
+            if not any(indicator in title.lower() or indicator in description.lower() 
+                      for indicator in restaurant_indicators):
+                return None
+            
+            # Extract potential restaurant name from title
+            # Remove common prefixes/suffixes
+            name = re.sub(r'^.*?[：:]\s*', '', title)  # Remove "destination: " prefix
+            name = re.sub(r'\s*[-–—]\s*.*$', '', name)  # Remove " - description" suffix
+            name = re.sub(r'\s*\|\s*.*$', '', name)    # Remove " | site" suffix
+            name = re.sub(r'\s*\.\.\.$', '', name)     # Remove trailing dots
+            
+            if len(name) < 3:
+                return None
+            
+            # Determine cuisine type from description and title
+            cuisine = 'Local'
+            cuisine_mapping = {
+                '川菜': 'Sichuan',
+                '粤菜': 'Cantonese', 
+                '湘菜': 'Hunan',
+                '东北菜': 'Northeastern',
+                '西餐': 'Western',
+                '日料': 'Japanese',
+                '韩料': 'Korean',
+                '泰菜': 'Thai',
+                '意大利': 'Italian',
+                '法餐': 'French',
+                '印度': 'Indian',
+                '火锅': 'Hot Pot',
+                '烧烤': 'BBQ',
+                '海鲜': 'Seafood'
+            }
+            
+            full_text = (title + ' ' + description).lower()
+            for keyword, cuisine_type in cuisine_mapping.items():
+                if keyword in full_text:
+                    cuisine = cuisine_type
                     break
             
-            # Extract price range
-            price_range = ''
-            price_selectors = ['.price', '[class*="price"]', '.cost']
-            for selector in price_selectors:
-                price_elem = element.select_one(selector)
-                if price_elem:
-                    price_range = price_elem.get_text(strip=True)
-                    break
+            # Extract rating if mentioned
+            rating = 4.0  # Default rating
+            rating_patterns = [
+                r'(\d+\.?\d*)\s*分',
+                r'(\d+\.?\d*)\s*星',
+                r'rating[:\s]*(\d+\.?\d*)',
+                r'(\d+\.?\d*)/5'
+            ]
             
-            # Extract review count
-            review_count = 0
-            review_selectors = ['.review-count', '[class*="review"]']
-            for selector in review_selectors:
-                review_elem = element.select_one(selector)
-                if review_elem:
-                    review_text = review_elem.get_text()
-                    review_match = re.search(r'(\d+)', review_text)
-                    if review_match:
-                        review_count = int(review_match.group(1))
+            for pattern in rating_patterns:
+                match = re.search(pattern, description, re.IGNORECASE)
+                if match:
+                    try:
+                        rating = float(match.group(1))
+                        if rating > 5:  # Assume it's out of 10, convert to 5
+                            rating = rating / 2
                         break
+                    except ValueError:
+                        continue
+            
+            # Determine price range from description
+            price_range = 'Mid-range'
+            if any(word in full_text for word in ['高端', '豪华', 'luxury', 'fine dining', 'expensive']):
+                price_range = 'High-end'
+            elif any(word in full_text for word in ['便宜', '实惠', 'cheap', 'budget', 'affordable']):
+                price_range = 'Budget'
+            elif any(word in full_text for word in ['奢华', 'michelin', '米其林']):
+                price_range = 'Luxury'
             
             return {
-                'name': name,
-                'rating': rating or 4.0,
-                'cuisine': cuisine or 'International',
-                'price_range': price_range or 'Mid-range',
-                'review_count': review_count,
-                'description': f'Popular restaurant in the area with good reviews.',
-                'specialties': [cuisine] if cuisine else ['International cuisine']
+                'name': name[:50],  # Limit name length
+                'description': description[:200],  # Limit description length
+                'cuisine': cuisine,
+                'rating': min(max(rating, 1.0), 5.0),  # Ensure rating is between 1-5
+                'price_range': price_range,
+                'specialties': [cuisine + ' cuisine'],
+                'location': destination,
+                'review_count': 0  # Not available from search results
             }
             
         except Exception as e:
-            logger.warning(f"Error parsing TripAdvisor restaurant element: {str(e)}")
+            logger.warning(f"Error parsing DuckDuckGo restaurant result: {str(e)}")
+            return None
+    
+    def _parse_bing_restaurant_result(self, element, destination: str) -> Optional[Dict[str, Any]]:
+        """Parse a Bing search result for restaurant information."""
+        try:
+            # Extract title and description
+            title_elem = element.select_one('h2 a, .b_title a, .b_algo h2 a')
+            desc_elem = element.select_one('.b_caption p, .b_snippet, .b_descript')
+            
+            if not title_elem:
+                return None
+            
+            title = title_elem.get_text(strip=True)
+            description = desc_elem.get_text(strip=True) if desc_elem else ''
+            
+            # Filter for restaurant-related results
+            restaurant_indicators = [
+                '餐厅', '饭店', '酒楼', '茶餐厅', '火锅', '川菜', '粤菜', '湘菜',
+                'restaurant', 'dining', 'food', 'cuisine', 'cafe', 'bar', 'bistro',
+                '美食', '小吃', '菜', '料理', '烧烤', '麻辣烫'
+            ]
+            
+            if not any(indicator in title.lower() or indicator in description.lower() 
+                      for indicator in restaurant_indicators):
+                return None
+            
+            # Extract potential restaurant name from title
+            # Remove common prefixes/suffixes
+            name = re.sub(r'^.*?[：:]\s*', '', title)  # Remove "destination: " prefix
+            name = re.sub(r'\s*[-–—]\s*.*$', '', name)  # Remove " - description" suffix
+            name = re.sub(r'\s*\|\s*.*$', '', name)    # Remove " | site" suffix
+            name = re.sub(r'\s*\.\.\.$', '', name)     # Remove trailing dots
+            
+            if len(name) < 3:
+                return None
+            
+            # Determine cuisine type from description and title
+            cuisine = 'Local'
+            cuisine_mapping = {
+                '川菜': 'Sichuan',
+                '粤菜': 'Cantonese', 
+                '湘菜': 'Hunan',
+                '东北菜': 'Northeastern',
+                '西餐': 'Western',
+                '日料': 'Japanese',
+                '韩料': 'Korean',
+                '泰菜': 'Thai',
+                '意大利': 'Italian',
+                '法餐': 'French',
+                '印度': 'Indian',
+                '火锅': 'Hot Pot',
+                '烧烤': 'BBQ',
+                '海鲜': 'Seafood'
+            }
+            
+            full_text = (title + ' ' + description).lower()
+            for keyword, cuisine_type in cuisine_mapping.items():
+                if keyword in full_text:
+                    cuisine = cuisine_type
+                    break
+            
+            # Extract rating if mentioned
+            rating = 4.0  # Default rating
+            rating_patterns = [
+                r'(\d+\.?\d*)\s*分',
+                r'(\d+\.?\d*)\s*星',
+                r'rating[:\s]*(\d+\.?\d*)',
+                r'(\d+\.?\d*)/5'
+            ]
+            
+            for pattern in rating_patterns:
+                match = re.search(pattern, description, re.IGNORECASE)
+                if match:
+                    try:
+                        rating = float(match.group(1))
+                        if rating > 5:  # Assume it's out of 10, convert to 5
+                            rating = rating / 2
+                        break
+                    except ValueError:
+                        continue
+            
+            # Determine price range from description
+            price_range = 'Mid-range'
+            if any(word in full_text for word in ['高端', '豪华', 'luxury', 'fine dining', 'expensive']):
+                price_range = 'High-end'
+            elif any(word in full_text for word in ['便宜', '实惠', 'cheap', 'budget', 'affordable']):
+                price_range = 'Budget'
+            elif any(word in full_text for word in ['奢华', 'michelin', '米其林']):
+                price_range = 'Luxury'
+            
+            return {
+                'name': name[:50],  # Limit name length
+                'description': description[:200],  # Limit description length
+                'cuisine': cuisine,
+                'rating': min(max(rating, 1.0), 5.0),  # Ensure rating is between 1-5
+                'price_range': price_range,
+                'specialties': [cuisine + ' cuisine'],
+                'location': destination,
+                'review_count': 0  # Not available from search results
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error parsing Bing restaurant result: {str(e)}")
             return None
     
     def _scrape_search_engines(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
@@ -805,6 +1020,9 @@ class RestaurantScraper:
             # Source reliability (0-20 points)
             source = restaurant.get('source', '')
             source_scores = {
+                'duckduckgo_mcp': 17,
+                'bing_mcp': 18,
+                'bing_search': 16,
                 'tripadvisor': 20,
                 'tourism_site': 15,
                 'food_blog': 12,
