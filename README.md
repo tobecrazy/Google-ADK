@@ -24,7 +24,7 @@ An intelligent travel planning assistant built with Google ADK (AI Development K
 ### Prerequisites
 - Python 3.8+
 - Node.js (for MCP servers)
-- Google API Key (for Gemini)
+- ModelScope API Key (for open-source models)
 - Amap API Key (optional, for enhanced location services)
 
 ### Installation
@@ -64,8 +64,8 @@ An intelligent travel planning assistant built with Google ADK (AI Development K
 Create a `.env` file in the `travel_agent` directory:
 
 ```env
-# Required: Google API Key for Gemini
-GOOGLE_API_KEY=your_google_api_key_here
+# Required: ModelScope API Key for open-source models
+MODELSCOPE_API_KEY=your_modelscope_api_key_here
 
 # Optional: Amap API Key for enhanced location services
 AMAP_MAPS_API_KEY=your_amap_api_key_here
@@ -92,7 +92,7 @@ CACHE_TTL=3600
 
 ### Model Update
 
-The travel agent now uses Openrouter models for enhanced performance and fallback options. The models are configured to automatically switch in case of rate limits, ensuring continuous operation.
+The travel agent now uses ModelScope open-source models for enhanced performance and fallback options. The models are configured to automatically switch in case of rate limits, ensuring continuous operation. This represents a major upgrade from Google's Gemini models to Chinese open-source alternatives including Qwen and DeepSeek models.
 
 ### Usage Instructions
 
@@ -301,6 +301,13 @@ logging.basicConfig(level=logging.DEBUG)
 
 ## 🔄 Recent Updates
 
+### v2.3.0 - LLM Migration to ModelScope Open-Source Models
+- ✅ **LLM Migration**: Complete migration from Google's Gemini models to ModelScope open-source models (Qwen, DeepSeek)
+- ✅ **Enhanced Performance**: Improved response times and reduced dependency on external APIs
+- ✅ **Domestic Model Support**: Integration with Chinese open-source models for better cultural and linguistic context
+- ✅ **Fallback Model System**: Automatic switching between models (Qwen, DeepSeek) in case of rate limits
+- ✅ **API Configuration Update**: Changed from GOOGLE_API_KEY to MODELSCOPE_API_KEY requirement
+
 ### v2.2.0 - Enhanced Web Fetch and Content Integration
 - ✅ **MCP Fetch Service Integration**: Added `MCPFetchService` and `MCPImageService` for enhanced content and image retrieval capabilities.
 - ✅ **Restaurant Data Enhancement**: Updated `restaurant_scraper.py` to use MCP services for fetching restaurant pages and images with intelligent fallback logic.
@@ -325,6 +332,7 @@ logging.basicConfig(level=logging.DEBUG)
 - ✅ **Compatibility**: Backward compatibility with existing code
 
 ### Key Improvements
+- **ModelScope Integration**: Complete migration to Chinese open-source models (Qwen, DeepSeek) from Google's Gemini
 - **4+ MCP servers** successfully integrated (Time, Amap Maps, Web Fetch, Memory, Image Services)
 - **15+ total tools** available for real-time data access and content retrieval
 - **Enhanced web scraping** with MCP fetch service integration
@@ -349,6 +357,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 Acknowledgments
 
 - Google ADK team for the AI development framework
+- ModelScope team for open-source large language models
 - Model Context Protocol (MCP) for tool integration standards
 - Amap for location and weather services
 - Open source community for MCP server implementations
