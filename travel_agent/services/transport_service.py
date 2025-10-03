@@ -23,9 +23,9 @@ class TransportService:
     
     def __init__(self):
         """Initialize the transport service."""
-        # Initialize Gemini for transport data generation
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        # Initialize ModelScope LLM for transport data generation using shared factory
+        from travel_agent.utils.model_factory import create_llm_model
+        self.model = create_llm_model("TransportService")
         
         # Initialize the transport crawler for real-time data
         self.crawler = TransportCrawler()

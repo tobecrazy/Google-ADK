@@ -35,9 +35,9 @@ class ReportGeneratorAgent:
             autoescape=True
         )
         
-        # Initialize Gemini for content enhancement
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        # Initialize ModelScope LLM for content enhancement using shared factory
+        from travel_agent.utils.model_factory import create_llm_model
+        self.model = create_llm_model("ReportGeneratorAgent")
         
         logger.info("Report Generator Agent initialized")
     

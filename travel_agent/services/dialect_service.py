@@ -19,9 +19,9 @@ class DialectService:
     
     def __init__(self):
         """Initialize the dialect service."""
-        # Initialize Gemini for dialect generation
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        # Initialize ModelScope LLM for dialect generation using shared factory
+        from travel_agent.utils.model_factory import create_llm_model
+        self.model = create_llm_model("DialectService")
         
         # Predefined dialect mappings for common Chinese destinations
         self.dialect_mappings = {
