@@ -466,11 +466,21 @@ class AttractionService:
             elif 'score' in poi:
                 return float(poi['score'])
             else:
-                # Estimate based on POI type and name recognition
+                # Estimate based on POI type - use generic categories instead of specific attractions
                 name = poi.get('name', '').lower()
-                if any(keyword in name for keyword in ['外滩', '东方明珠', '豫园']):
-                    return 4.5
-                elif any(keyword in name for keyword in ['博物馆', 'museum']):
+                if any(keyword in name for keyword in ['博物馆', 'museum']):
+                    return 4.2
+                elif any(keyword in name for keyword in ['塔', 'tower', '观景台']):
+                    return 4.3
+                elif any(keyword in name for keyword in ['滨江', '江滨', '外滩', '步行街']):
+                    return 4.4
+                elif any(keyword in name for keyword in ['园', 'garden']) and any(keyword in name for keyword in ['古', '传统', '历史']):
+                    return 4.3
+                elif any(keyword in name for keyword in ['寺', '庙', 'temple']):
+                    return 4.1
+                elif any(keyword in name for keyword in ['公园', 'park']):
+                    return 4.0
+                elif any(keyword in name for keyword in ['山', 'mountain', '峰', 'peak']):
                     return 4.2
                 else:
                     return 4.0
