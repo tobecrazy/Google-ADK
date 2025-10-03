@@ -350,7 +350,7 @@ class AttractionService:
             address = poi.get('address', '')
             type_code = poi.get('type', '')
             
-            # Use available information to create description
+            # Use available information to create description based on attraction types
             if '博物馆' in name or 'museum' in name.lower():
                 return f"{name}是一座重要的博物馆，展示丰富的文化和历史藏品，是了解当地文化的绝佳场所。"
             elif '公园' in name or 'park' in name.lower():
@@ -359,10 +359,14 @@ class AttractionService:
                 return f"{name}是当地的标志性建筑，提供城市全景视野，是拍照和观光的热门地点。"
             elif '寺' in name or '庙' in name:
                 return f"{name}是一座历史悠久的宗教建筑，具有深厚的文化底蕴和精美的建筑艺术。"
-            elif '外滩' in name:
-                return f"{name}是上海最著名的景点之一，汇集了各种风格的历史建筑，是欣赏黄浦江美景的最佳地点。"
-            elif '豫园' in name:
-                return f"{name}是上海著名的古典园林，展现了中国传统园林艺术的精髓，是体验传统文化的理想场所。"
+            elif '外滩' in name or '滨江' in name or '江滨' in name:
+                return f"{name}是当地著名的滨水景观区，汇集了各种风格的历史建筑，是欣赏江景的最佳地点。"
+            elif '园' in name and ('古' in name or '传统' in name or '历史' in name):
+                return f"{name}是当地著名的古典园林，展现了中国传统园林艺术的精髓，是体验传统文化的理想场所。"
+            elif '广场' in name or 'square' in name.lower():
+                return f"{name}是当地的中心广场，是市民休闲和文化活动的重要场所，充满当地生活气息。"
+            elif '街' in name or 'street' in name.lower():
+                return f"{name}是当地的特色街区，保留了传统建筑风格，是体验当地文化和购物的好去处。"
             else:
                 return f"{name}是当地的著名景点，位于{address}，值得一游。"
                 
@@ -384,10 +388,14 @@ class AttractionService:
                 return '观光地标'
             elif any(keyword in name for keyword in ['寺', '庙', 'temple']):
                 return '宗教文化'
-            elif any(keyword in name for keyword in ['外滩', '南京路', '步行街']):
+            elif any(keyword in name for keyword in ['滨江', '江滨', '外滩', '步行街', '老街', '古街']):
                 return '历史文化'
             elif any(keyword in name for keyword in ['广场', 'square']):
                 return '城市地标'
+            elif any(keyword in name for keyword in ['山', 'mountain', '峰', 'peak']):
+                return '自然风光'
+            elif any(keyword in name for keyword in ['湖', 'lake', '河', 'river', '江', 'sea']):
+                return '自然风光'
             else:
                 return '综合景点'
                 
@@ -406,10 +414,18 @@ class AttractionService:
                 return '1-2小时'
             elif any(keyword in name for keyword in ['塔', 'tower']):
                 return '1小时'
-            elif any(keyword in name for keyword in ['外滩']):
+            elif any(keyword in name for keyword in ['滨江', '江滨', '外滩', '步行街']):
                 return '2-3小时'
-            elif any(keyword in name for keyword in ['豫园']):
+            elif any(keyword in name for keyword in ['园', 'garden']) and any(keyword in name for keyword in ['古', '传统', '历史']):
                 return '2-3小时'
+            elif any(keyword in name for keyword in ['寺', '庙', 'temple']):
+                return '1-2小时'
+            elif any(keyword in name for keyword in ['广场', 'square']):
+                return '1小时'
+            elif any(keyword in name for keyword in ['山', 'mountain', '峰', 'peak']):
+                return '3-4小时'
+            elif any(keyword in name for keyword in ['湖', 'lake', '河', 'river']):
+                return '1-2小时'
             else:
                 return '1-2小时'
                 
@@ -426,10 +442,14 @@ class AttractionService:
                 return 20.0
             elif any(keyword in name for keyword in ['塔', 'tower']):
                 return 50.0
-            elif any(keyword in name for keyword in ['豫园']):
+            elif any(keyword in name for keyword in ['园', 'garden']) and any(keyword in name for keyword in ['古', '传统', '历史']):
                 return 30.0
-            elif any(keyword in name for keyword in ['公园', 'park', '外滩', '广场']):
+            elif any(keyword in name for keyword in ['公园', 'park', '滨江', '江滨', '外滩', '广场', 'square']):
                 return 0.0
+            elif any(keyword in name for keyword in ['寺', '庙', 'temple']):
+                return 10.0
+            elif any(keyword in name for keyword in ['山', 'mountain', '峰', 'peak']):
+                return 15.0
             else:
                 return 10.0
                 
