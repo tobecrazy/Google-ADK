@@ -14,7 +14,7 @@ An intelligent travel planning assistant built with Google ADK (AI Development K
 ### MCP Tool Integration
 - **⏰ Time Server**: Accurate date/time calculations with timezone support
 - **🗺️ Amap Maps**: Location search, weather forecasts (exclusive source), real-time attraction data, and route planning
-- **🌐 Web Fetch**: Real-time web data retrieval for restaurant pages and image searches
+- **🌐 Web Fetch**: Real-time web data retrieval using Bing search for restaurant pages and image searches (replacing DuckDuckGo)
 - **🧠 Memory**: User preferences and travel history storage
 - **🖼️ Image Services**: Enhanced image search and retrieval using MCP fetch capabilities
 - **🔄 Async Loading**: Parallel tool initialization for optimal performance
@@ -216,7 +216,7 @@ Registry status:
 - `maps_search_detail`: Detailed POI information
 
 ### Web Fetch Server (Optional)
-- `fetch`: Retrieve and process web content, restaurant pages, and image searches
+- `fetch`: Retrieve and process web content using Bing search, restaurant pages, and image searches (replacing DuckDuckGo)
 
 ### Memory Server (Optional)
 - `create_entities`: Store travel preferences
@@ -301,6 +301,18 @@ logging.basicConfig(level=logging.DEBUG)
 
 ## 🔄 Recent Updates
 
+### v2.5.0 - Bing Search Integration & Enhanced Robustness
+- ✅ **Bing Search Migration**: Complete replacement of DuckDuckGo with Bing search for improved reliability and better results
+- ✅ **Unified Bing Search Utilities**: Introduced `bing_search_utils.py` for centralized search capabilities
+- ✅ **Accommodation Service Fallback**: Added sample accommodation fallback when AI model is unavailable
+- ✅ **Weather Service Simplification**: Clearer error responses with placeholder data when real-time weather is unavailable
+- ✅ **POI Score Refinement**: Improved scoring for attractions based on generic categories
+
+### v2.4.0 - LLM Model Factory & Enhanced Services
+- ✅ **Shared Model Factory**: Centralized model initialization with `model_factory.py` for consistent LLM usage
+- ✅ **Service Robustness**: Enhanced error handling and fallback strategies across accommodation, attraction, and restaurant services
+- ✅ **Improved Parsing**: Better content extraction in restaurant and attraction scraping services
+
 ### v2.3.0 - LLM Migration to ModelScope Open-Source Models
 - ✅ **LLM Migration**: Complete migration from Google's Gemini models to ModelScope open-source models (Qwen, DeepSeek)
 - ✅ **Enhanced Performance**: Improved response times and reduced dependency on external APIs
@@ -311,14 +323,14 @@ logging.basicConfig(level=logging.DEBUG)
 ### v2.2.0 - Enhanced Web Fetch and Content Integration
 - ✅ **MCP Fetch Service Integration**: Added `MCPFetchService` and `MCPImageService` for enhanced content and image retrieval capabilities.
 - ✅ **Restaurant Data Enhancement**: Updated `restaurant_scraper.py` to use MCP services for fetching restaurant pages and images with intelligent fallback logic.
-- ✅ **Improved URL Handling**: Enhanced URL processing and DuckDuckGo redirect parsing for more reliable web content fetching.
+- ✅ **Improved URL Handling**: Enhanced URL processing and Bing redirect parsing for more reliable web content fetching.
 - ✅ **Image Search Capabilities**: New image search functionality using MCP fetch for restaurants, attractions, and food items.
 - ✅ **Python Publishing Workflow**: Added automated GitHub Actions workflow for Python package publishing.
 
 ### v2.1.0 - Real-time Data and Reporting Enhancements
 - ✅ **Real-time Attraction Data**: `AttractionService` now retrieves real-time attraction information using Amap MCP, providing more accurate and up-to-date recommendations.
 - ✅ **Markdown Report Generation**: In addition to HTML, the agent now generates detailed travel reports in Markdown format.
-- ✅ **Streamlined Weather Service**: `WeatherService` has been refactored to exclusively use the Amap MCP server for all weather data, simplifying the architecture.
+- ✅ **Streamlined Weather Service**: `WeatherService` has been refactored with improved fallback strategies when real-time weather data is unavailable.
 - ✅ **Improved Cost Display**: The HTML travel plan reports now feature enhanced display logic for estimated costs, improving clarity for users.
 
 ### v2.0.0 - MCP Tool Integration Optimization
@@ -333,6 +345,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 ### Key Improvements
 - **ModelScope Integration**: Complete migration to Chinese open-source models (Qwen, DeepSeek) from Google's Gemini
+- **Bing Search Implementation**: More reliable search results replacing DuckDuckGo
+- **Shared Model Factory**: Centralized, consistent LLM initialization across all services
+- **Enhanced Robustness**: Better fallback mechanisms when services are unavailable
 - **4+ MCP servers** successfully integrated (Time, Amap Maps, Web Fetch, Memory, Image Services)
 - **15+ total tools** available for real-time data access and content retrieval
 - **Enhanced web scraping** with MCP fetch service integration
