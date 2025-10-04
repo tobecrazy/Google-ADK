@@ -255,6 +255,58 @@ class MCPFetchService:
         except Exception as e:
             logger.error(f"Error fetching restaurant page with MCP: {e}")
             return None
+    
+    def _search_restaurants_fallback(self, destination: str, max_results: int = 10) -> List[str]:
+        """Fallback method for restaurant search without unified utilities"""
+        try:
+            search_url = f"https://www.bing.com/search?q={quote(destination + ' 最佳餐厅 推荐')}&mkt=zh-CN"
+            content = self.fetch_url(search_url, max_length=8000)
+            if not content:
+                return []
+            
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            results = soup.select('.b_algo')
+            
+            urls = []
+            for result in results[:max_results]:
+                link_elem = result.select_one('h2 a')
+                if link_elem:
+                    href = link_elem.get('href')
+                    if href and href.startswith('http'):
+                        urls.append(href)
+            
+            return urls
+        except Exception as e:
+            logger.error(f"Error in restaurant search fallback: {e}")
+            return []
+    
+    def _search_images_fallback(self, query: str, max_results: int = 5) -> List[str]:
+        """Fallback method for image search without unified utilities"""
+        try:
+            search_url = f"https://www.bing.com/images/search?q={quote(query)}&mkt=zh-CN"
+            content = self.fetch_url(search_url, raw=True)
+            if not content:
+                return []
+            
+            image_urls = []
+            img_patterns = [r'"murl":"([^"]+)"', r'"imgurl":"([^"]+)"']
+            
+            for pattern in img_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches[:max_results]:
+                    img_url = match.replace('\\/', '/')
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    if img_url.startswith('http') and img_url not in image_urls:
+                        image_urls.append(img_url)
+                if len(image_urls) >= max_results:
+                    break
+            
+            return image_urls
+        except Exception as e:
+            logger.error(f"Error in image search fallback: {e}")
+            return []
 
 
 class MCPImageService:

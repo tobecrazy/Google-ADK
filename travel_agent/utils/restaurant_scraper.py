@@ -23,13 +23,15 @@ import json
 from urllib.parse import urljoin, urlparse, quote
 from datetime import datetime
 
-# Import MCP services
+# Import MCP services and unified Bing search utilities
 try:
     from ..services.mcp_fetch_service import MCPFetchService, MCPImageService
+    from .bing_search_utils import get_bing_search_utils
 except ImportError:
     # Fallback if import fails
     MCPFetchService = None
     MCPImageService = None
+    get_bing_search_utils = None
 
 logger = logging.getLogger(__name__)
 
@@ -1047,7 +1049,7 @@ class RestaurantScraper:
     
     def get_restaurant_images_mcp(self, restaurant_name: str, location: str = "") -> List[str]:
         """
-        Get restaurant images using MCP fetch service
+        Get restaurant images using unified Bing search utilities
         
         Args:
             restaurant_name: Name of the restaurant
@@ -1057,17 +1059,29 @@ class RestaurantScraper:
             List of image URLs
         """
         try:
+            # Use unified Bing search utilities if available
+            if get_bing_search_utils:
+                bing_utils = get_bing_search_utils()
+                query = f"{restaurant_name} restaurant"
+                if location:
+                    query += f" {location}"
+                images = bing_utils.search_images(query, 3)
+                if images:
+                    logger.info(f"Found {len(images)} images for {restaurant_name} using unified Bing search")
+                    return images
+            
+            # Fallback to MCP service
             if self.mcp_image_service:
                 images = self.mcp_image_service.get_restaurant_images(restaurant_name, location)
                 if images:
                     logger.info(f"Found {len(images)} images for {restaurant_name} using MCP")
                     return images
             
-            # Fallback to traditional search if MCP is not available
+            # Final fallback to traditional search
             return self._get_restaurant_images_fallback(restaurant_name, location)
             
         except Exception as e:
-            logger.error(f"Error getting restaurant images with MCP: {e}")
+            logger.error(f"Error getting restaurant images: {e}")
             return self._get_restaurant_images_fallback(restaurant_name, location)
     
     def _get_restaurant_images_fallback(self, restaurant_name: str, location: str = "") -> List[str]:
@@ -1150,6 +1164,48 @@ class RestaurantScraper:
         except Exception as e:
             logger.error(f"Error fetching page: {e}")
             return None
+
+    def _scrape_bing_restaurants_fallback(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
+        """Fallback method for Bing restaurant search without unified utilities"""
+        try:
+            restaurants = []
+            search_queries = [
+                f"{destination} 最佳餐厅 推荐",
+                f"{destination} best restaurants"
+            ]
+            
+            for query in search_queries[:1]:  # Limit to 1 query
+                try:
+                    search_url = f"https://www.bing.com/search?q={quote(query)}&mkt=zh-CN"
+                    time.sleep(random.uniform(2, 4))
+                    self.session.headers['User-Agent'] = random.choice(self.user_agents)
+                    
+                    response = self.session.get(search_url, timeout=15)
+                    response.raise_for_status()
+                    
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    results = soup.select('.b_algo')
+                    
+                    for result in results[:max_results]:
+                        try:
+                            restaurant = self._parse_bing_restaurant_result_mcp(result, destination)
+                            if restaurant:
+                                restaurant['source'] = 'bing_fallback'
+                                restaurant['scraped_at'] = datetime.now().isoformat()
+                                restaurants.append(restaurant)
+                        except Exception as e:
+                            logger.warning(f"Error parsing Bing restaurant result: {str(e)}")
+                            continue
+                            
+                except Exception as e:
+                    logger.warning(f"Error with Bing search query '{query}': {str(e)}")
+                    continue
+            
+            return restaurants
+            
+        except Exception as e:
+            logger.error(f"Error in Bing restaurant search fallback: {str(e)}")
+            return []
 
     def close(self):
         """Close the scraper and cleanup resources."""
