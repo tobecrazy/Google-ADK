@@ -441,127 +441,75 @@ class WeatherService:
     
     def _create_error_response(self, error_message: str, destination: str) -> Dict[str, Any]:
         """
-        Create standardized error response for weather service failures with realistic fallback data.
+        Create standardized error response for weather service failures.
         
         Args:
             error_message: Description of the error
             destination: Destination that was queried
             
         Returns:
-            Standardized error response dictionary with realistic weather data
+            Standardized error response dictionary indicating real weather data is needed
         """
-        logger.warning(f"⚠️ Creating error response for {destination}: {error_message}")
+        logger.warning(f"⚠️ Weather service unavailable for {destination}: {error_message}")
         
-        # Create realistic forecast with seasonal data based on current month
+        # Create placeholder forecast that clearly indicates real data is needed
         placeholder_forecast = []
         try:
             from datetime import datetime, timedelta
-            import random
             
             today = datetime.now()
-            current_month = today.month
-            
-            # Define seasonal weather patterns
-            seasonal_patterns = {
-                'spring': (3, 4, 5),  # March, April, May
-                'summer': (6, 7, 8),  # June, July, August
-                'autumn': (9, 10, 11),  # September, October, November
-                'winter': (12, 1, 2)   # December, January, February
-            }
-            
-            # Determine current season
-            current_season = 'spring'
-            for season, months in seasonal_patterns.items():
-                if current_month in months:
-                    current_season = season
-                    break
-            
-            # Define weather patterns by season
-            weather_data = {
-                'spring': {
-                    'conditions': ['晴天', '多云', '小雨', '阴天'],
-                    'temp_range': (15, 25),
-                    'description_prefix': '春季'
-                },
-                'summer': {
-                    'conditions': ['晴天', '多云', '雷阵雨', '炎热'],
-                    'temp_range': (25, 35),
-                    'description_prefix': '夏季'
-                },
-                'autumn': {
-                    'conditions': ['晴天', '多云', '阴天', '小雨'],
-                    'temp_range': (10, 22),
-                    'description_prefix': '秋季'
-                },
-                'winter': {
-                    'conditions': ['晴天', '阴天', '小雪', '多云'],
-                    'temp_range': (-5, 15),
-                    'description_prefix': '冬季'
-                }
-            }
-            
-            season_data = weather_data.get(current_season, weather_data['spring'])
-            
             for i in range(7):  # 7-day forecast
                 forecast_date = today + timedelta(days=i)
                 
-                # Generate realistic weather for the day
-                condition = random.choice(season_data['conditions'])
-                min_temp, max_temp = season_data['temp_range']
-                day_temp = random.randint(min_temp + 3, max_temp)
-                night_temp = day_temp - random.randint(3, 8)
-                
                 placeholder_forecast.append({
                     'date': forecast_date.strftime('%Y-%m-%d'),
                     'day_name': forecast_date.strftime('%A'),
-                    'condition': condition,
-                    'day_weather': condition,
-                    'night_weather': condition,
-                    'temperature': day_temp,
-                    'day_temp': str(day_temp),
-                    'night_temp': str(night_temp),
-                    'summary': f'{condition}，白天{day_temp}°C，夜间{night_temp}°C',
-                    'temperature_range': f'{night_temp}°C - {day_temp}°C',
-                    'note': f'基于{season_data["description_prefix"]}典型天气模式的预估数据'
+                    'condition': '请查看实时天气',
+                    'day_weather': '请查看实时天气',
+                    'night_weather': '请查看实时天气',
+                    'temperature': None,
+                    'day_temp': 'N/A',
+                    'night_temp': 'N/A',
+                    'summary': '请使用天气应用查看当日实时天气预报',
+                    'temperature_range': 'N/A',
+                    'note': '需要查看实时天气数据'
                 })
                 
         except Exception as e:
-            logger.error(f"Error creating realistic forecast: {str(e)}")
-            # Fallback to simple forecast
-            for i in range(3):
-                forecast_date = today + timedelta(days=i)
-                placeholder_forecast.append({
-                    'date': forecast_date.strftime('%Y-%m-%d'),
-                    'day_name': forecast_date.strftime('%A'),
-                    'condition': '多云',
-                    'temperature': 20,
-                    'summary': f'预计多云，温度适宜',
-                    'temperature_range': '15°C - 25°C',
-                    'note': '基于历史数据的预估'
-                })
+            logger.error(f"Error creating placeholder forecast: {str(e)}")
         
         return {
-            'success': True,  # Changed to True so the data is used
+            'success': False,  # Set to False to indicate service unavailable
             'destination': destination,
+            'error': error_message,
             'forecast': placeholder_forecast,
             'current_weather': {
-                'condition': placeholder_forecast[0]['condition'] if placeholder_forecast else '多云',
-                'temperature': placeholder_forecast[0]['temperature'] if placeholder_forecast else 20,
-                'description': f'{destination}当前天气：{placeholder_forecast[0]["condition"] if placeholder_forecast else "多云"}，温度{placeholder_forecast[0]["temperature"] if placeholder_forecast else 20}°C',
+                'condition': '天气服务暂不可用',
+                'temperature': None,
+                'description': f'无法获取{destination}的实时天气数据，请使用天气应用查看',
                 'city': destination
             },
-            'source': 'Weather Service Fallback',
-            'note': '由于实时天气数据暂时无法获取，以下为基于季节特征的预估天气信息，建议出行前查看最新天气预报。',
-            'suggestion': '推荐使用手机天气应用、天气网站获取最新准确的天气信息。',
-            'data_source': 'seasonal_estimation',
-            'reliability': 'estimated',
+            'source': 'Weather Service Error',
+            'note': '⚠️ 天气数据服务暂时不可用，请使用以下方式获取准确的天气信息：',
+            'suggestion': '推荐使用手机天气应用、天气网站或询问当地人获取最新天气信息。',
+            'data_source': 'service_unavailable',
+            'reliability': 'unavailable',
             'troubleshooting': {
-                'status': 'fallback_data_provided',
-                'message': '已提供基于季节特征的预估天气数据',
+                'status': 'service_unavailable',
+                'message': 'MCP天气服务暂时不可用',
                 'recommendations': [
-                    '出行前请查看最新天气预报',
-                    '准备适合当季的衣物',
-                    '关注天气变化，灵活调整行程'
+                    '使用手机天气应用（如天气通、墨迹天气等）',
+                    '访问天气网站（如中国天气网、Weather.com）',
+                    '询问当地人或酒店前台',
+                    '关注当地新闻天气预报',
+                    '出行前一天再次确认天气情况'
+                ],
+                'alternative_sources': [
+                    '中国天气网: weather.com.cn',
+                    '墨迹天气APP',
+                    '天气通APP',
+                    '微信小程序：天气预报',
+                    '支付宝小程序：天气'
                 ]
             }
         }
