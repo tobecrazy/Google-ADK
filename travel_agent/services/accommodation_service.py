@@ -99,10 +99,13 @@ class AccommodationService:
             - Distance to city center/attractions
             """
             
-            response = self.model.generate_content(prompt)
-            
-            # Parse the AI response
-            accommodations = self._parse_accommodation_response(response.text, destination, nightly_budget)
+            # Use the same pattern as AttractionService
+            if self.model:
+                response = self.model.generate_content(prompt)
+                accommodations = self._parse_accommodation_response(response.text, destination, nightly_budget)
+            else:
+                # Fallback if model is not available
+                accommodations = self._get_sample_accommodations(destination, nightly_budget)
             
             return accommodations
             
