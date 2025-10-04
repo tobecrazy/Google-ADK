@@ -221,7 +221,7 @@ class RestaurantScraper:
             return []
     
     def _search_restaurants_with_mcp(self, destination: str, max_results: int) -> List[Dict[str, Any]]:
-        """Search restaurants using MCP fetch service with DuckDuckGo."""
+        """Search restaurants using MCP fetch service with Bing."""
         try:
             restaurants = []
             
@@ -235,10 +235,10 @@ class RestaurantScraper:
             
             for query in search_queries[:2]:  # Limit to 2 queries
                 try:
-                    # Use DuckDuckGo search through MCP (more MCP-friendly than Bing)
-                    search_url = f"https://duckduckgo.com/html/?q={quote(query)}"
+                    # Use Bing search through MCP
+                    search_url = f"https://www.bing.com/search?q={quote(query)}&mkt=zh-CN"
                     
-                    logger.info(f"MCP DuckDuckGo search for: {query}")
+                    logger.info(f"MCP Bing search for: {query}")
                     content = self.mcp_fetch_service.fetch_url(search_url, max_length=8000)
                     
                     if content:
@@ -382,7 +382,7 @@ class RestaurantScraper:
             }
             
         except Exception as e:
-            logger.warning(f"Error parsing DuckDuckGo restaurant result: {str(e)}")
+            logger.warning(f"Error parsing Bing restaurant result: {str(e)}")
             return None
     
     def _parse_bing_restaurant_result(self, element, destination: str) -> Optional[Dict[str, Any]]:
@@ -776,11 +776,11 @@ class RestaurantScraper:
         try:
             logger.info(f"Scraping blog page: {url}")
             
-            # Handle relative URLs and DuckDuckGo redirect URLs
+            # Handle relative URLs and Bing redirect URLs
             if url.startswith('//'):
                 url = 'https:' + url
             elif url.startswith('/'):
-                url = 'https://duckduckgo.com' + url
+                url = 'https://www.bing.com' + url
             
             # Handle DuckDuckGo redirect URLs
             if 'duckduckgo.com/l/' in url:
@@ -1020,7 +1020,6 @@ class RestaurantScraper:
             # Source reliability (0-20 points)
             source = restaurant.get('source', '')
             source_scores = {
-                'duckduckgo_mcp': 17,
                 'bing_mcp': 18,
                 'bing_search': 16,
                 'tripadvisor': 20,
@@ -1087,8 +1086,8 @@ class RestaurantScraper:
             if location:
                 query += f" {location}"
             
-            # Use DuckDuckGo image search as fallback
-            search_url = f"https://duckduckgo.com/?q={quote(query)}&t=h_&iax=images&ia=images"
+            # Use Bing image search as fallback
+            search_url = f"https://www.bing.com/images/search?q={quote(query)}&mkt=zh-CN"
             
             time.sleep(random.uniform(2, 4))
             response = self.session.get(search_url, timeout=10)

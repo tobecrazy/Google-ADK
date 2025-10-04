@@ -93,7 +93,7 @@ class MCPFetchService:
             List of search result URLs
         """
         try:
-            # Use Bing search instead of DuckDuckGo for better reliability
+            # Use Bing search for better reliability
             search_queries = [
                 f"{destination} 最佳餐厅 推荐",
                 f"{destination} best restaurants dining"
@@ -177,7 +177,7 @@ class MCPFetchService:
             List of image URLs
         """
         try:
-            # Use Bing image search instead of DuckDuckGo
+            # Use Bing image search
             search_url = f"https://www.bing.com/images/search?q={quote(query)}&mkt=zh-CN"
             
             content = self.fetch_url(search_url, raw=True)
